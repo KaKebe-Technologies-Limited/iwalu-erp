@@ -1,4 +1,4 @@
-# Iwalu ERP
+python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'# Iwalu ERP
 
 Multi-tenant, offline-first ERP system for fuel stations.
 
@@ -20,6 +20,8 @@ cd iwalu-erp
 ```bash
 cp .env.example .env
 # Edit .env and add your secret key
+# You can generate a secret key by running this command, copying the secret key to the .env file
+docker-compose run --rm backend python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 3. Start Docker containers
