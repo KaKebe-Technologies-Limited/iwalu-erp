@@ -18,14 +18,24 @@ services:
       - "6379:6379"
 
   # Django Backend (add later after creating Django project)
-  # backend:
-  #   build: ./backend
-  #   command: python manage.py runserver 0.0.0.0:8000
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     - db
-  #     - redis
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=${DEBUG}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      - db
+      - redis
 
 volumes:
-  postgres_data:
+    postgres_data:
