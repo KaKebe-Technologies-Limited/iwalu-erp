@@ -1,0 +1,31 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: iwalu_db
+      POSTGRES_USER: iwalu_user
+      POSTGRES_PASSWORD: iwalu_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Django Backend (add later after creating Django project)
+  # backend:
+  #   build: ./backend
+  #   command: python manage.py runserver 0.0.0.0:8000
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - db
+  #     - redis
+
+volumes:
+  postgres_data:
