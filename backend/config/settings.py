@@ -42,8 +42,10 @@ SHARED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework', # Add rest_framework to shared apps
-    'api',            # Add api to shared apps
+    'rest_framework',  # Add rest_framework to shared apps
+    'rest_framework_simplejwt',
+    'api',
+    'users',
 ]
 
 TENANT_APPS = [
@@ -54,6 +56,8 @@ TENANT_APPS = [
 ]
 
 INSTALLED_APPS = list(set(SHARED_APPS + TENANT_APPS))
+
+AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware', # mandatory, keep at the top
@@ -86,13 +90,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly'
-    ]
-}
 
 # Change in production
 CORS_ALLOWED_ORIGINS = [
@@ -162,3 +159,18 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
