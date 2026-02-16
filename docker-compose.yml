@@ -40,7 +40,7 @@ services:
       - db
       - redis
 
-  # Next.js Frontend
+  # Next.js Frontend/
   frontend:
     build: ./frontend
     command: sh -c "npm install && npm run dev"
