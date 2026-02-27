@@ -89,7 +89,7 @@ export function AuthForm({ mode, onSubmit, onSocialLogin }: AuthFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {mode === "register" && (
         <div className="grid grid-cols-2 gap-4">
           <InputField
@@ -113,7 +113,7 @@ export function AuthForm({ mode, onSubmit, onSocialLogin }: AuthFormProps) {
 
       <InputField
         type="email"
-        placeholder="Email"
+        placeholder="Email address"
         value={formData.email}
         onChange={(value) => setFormData({ ...formData, email: value })}
         error={errors.email}
@@ -122,7 +122,7 @@ export function AuthForm({ mode, onSubmit, onSocialLogin }: AuthFormProps) {
 
       <InputField
         type="password"
-        placeholder="Enter your password"
+        placeholder="Password"
         value={formData.password}
         onChange={(value) => setFormData({ ...formData, password: value })}
         error={errors.password}
@@ -130,46 +130,62 @@ export function AuthForm({ mode, onSubmit, onSocialLogin }: AuthFormProps) {
       />
 
       {mode === "register" && (
-        <div className="flex items-start space-x-2">
+        <div className="flex items-start gap-3 pt-1">
           <Checkbox
             id="terms"
             checked={acceptedTerms}
-            // Explicitly typing the parameter here fixes the implicit 'any' error
             onCheckedChange={(checked: boolean | "indeterminate") =>
               setAcceptedTerms(checked === true)
             }
           />
           <label
             htmlFor="terms"
-            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            className="text-sm text-gray-600 leading-relaxed cursor-pointer"
           >
             I agree to the{" "}
-            <Link href="/terms" className="text-primary hover:underline">
+            <Link href="/terms" className="text-black font-semibold hover:underline underline-offset-2">
               Terms & Conditions
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-black font-semibold hover:underline underline-offset-2">
+              Privacy Policy
             </Link>
           </label>
         </div>
       )}
 
       {errors.terms && (
-        <p className="text-sm text-destructive">{errors.terms}</p>
+        <p className="text-sm text-red-500 font-medium">{errors.terms}</p>
+      )}
+
+      {mode === "login" && (
+        <div className="flex items-center justify-end">
+          <Link 
+            href="/auth/forgot-password" 
+            className="text-sm text-gray-500 hover:text-black transition-colors underline-offset-2 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
       )}
 
       <SubmitButton isLoading={isLoading}>
         {mode === "login" ? "Log in" : "Create account"}
       </SubmitButton>
 
-      <div className="relative">
+      {/* Divider */}
+      <div className="relative py-2">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
+          <div className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-muted-foreground">
-            Or {mode === "login" ? "log in" : "register"} with
+          <span className="bg-white px-4 text-gray-400 font-medium">
+            Or continue with
           </span>
         </div>
       </div>
 
+      {/* Social Buttons */}
       <div className="grid grid-cols-2 gap-4">
         <SocialButton
           provider="google"

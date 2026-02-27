@@ -48,7 +48,7 @@ export function SocialButton({ provider, onClick }: SocialButtonProps) {
     <Button
       type="button"
       variant="outline"
-      className="w-full"
+      className="w-full h-12 text-sm font-medium"
       onClick={onClick}
     >
       {icon}
