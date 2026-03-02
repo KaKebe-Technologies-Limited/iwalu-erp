@@ -12,22 +12,31 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+const registerSchema = loginSchema.extend({
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+});
+
 type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
+export type AuthFormData = LoginFormData | RegisterFormData;
 
 interface AuthFormProps {
   mode: "login" | "register";
-  onSubmit: (data: LoginFormData) => void | Promise<void>;
+  onSubmit: (data: AuthFormData) => void | Promise<void>;
   onSocialLogin?: (provider: "google" | "apple") => void;
   isLoading?: boolean;
 }
 
 export function AuthForm({ mode, onSubmit, onSocialLogin, isLoading }: AuthFormProps) {
+  const schema = mode === "register" ? registerSchema : loginSchema;
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<AuthFormData>({
+    resolver: zodResolver(schema),
   });
 
   return (
@@ -86,6 +95,50 @@ export function AuthForm({ mode, onSubmit, onSocialLogin, isLoading }: AuthFormP
             </div>
           </div>
         </div>
+      )}
+
+      {/* Register-only Fields */}
+      {mode === "register" && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First name</Label>
+              <Input
+                id="first_name"
+                placeholder="John"
+                {...register("first_name")}
+                disabled={isLoading}
+              />
+              {"first_name" in errors && errors.first_name && (
+                <p className="text-sm text-destructive">{errors.first_name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last name</Label>
+              <Input
+                id="last_name"
+                placeholder="Doe"
+                {...register("last_name")}
+                disabled={isLoading}
+              />
+              {"last_name" in errors && errors.last_name && (
+                <p className="text-sm text-destructive">{errors.last_name.message}</p>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              placeholder="johndoe"
+              {...register("username")}
+              disabled={isLoading}
+            />
+            {"username" in errors && errors.username && (
+              <p className="text-sm text-destructive">{errors.username.message}</p>
+            )}
+          </div>
+        </>
       )}
 
       {/* Email Field */}

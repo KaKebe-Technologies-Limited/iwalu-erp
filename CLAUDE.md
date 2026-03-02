@@ -427,7 +427,7 @@ Use exact paths: `backend/users/views.py`, `frontend/app/(dashboard)/dashboard/u
 - Next.js: https://nextjs.org/docs
 - TanStack Query: https://tanstack.com/query/latest
 - shadcn/ui: https://ui.shadcn.com/
-
+- Project Stage: @'Nexus ERP – Full System Proposal.pdf' Only refer to this to see what stage the project is at and what the next step should be.
 ---
 
 **Last Updated**: February 2026  

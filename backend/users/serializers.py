@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import User
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -8,14 +9,33 @@ class UserSerializer(serializers.ModelSerializer):
                   'phone_number', 'role', 'is_active', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+
 class UserCreateSerializer(serializers.ModelSerializer):
+    """Used by admin/manager to create users with any role."""
     password = serializers.CharField(write_only=True)
-    
+
     class Meta:
         model = User
         fields = ['email', 'username', 'password', 'first_name', 'last_name',
                   'phone_number', 'role']
-    
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    """Public self-registration. Role is always the default (cashier)."""
+    password = serializers.CharField(write_only=True, min_length=6)
+
+    class Meta:
+        model = User
+        fields = ['email', 'username', 'password', 'first_name', 'last_name',
+                  'phone_number']
+
     def create(self, validated_data):
         password = validated_data.pop('password')
         user = User.objects.create(**validated_data)

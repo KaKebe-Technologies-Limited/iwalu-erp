@@ -240,3 +240,7 @@ dist/
 *.sql
 *.sqlite
 *.sqlite3
+
+# Miscellaneous
+*.pdf
+*.tar.gz

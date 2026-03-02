@@ -1,16 +1,46 @@
 "use client";
 
-import { AuthForm } from "../../../../components/auth/AuthForm";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AuthForm } from "@/components/auth/AuthForm";
+import type { AuthFormData } from "@/components/auth/AuthForm";
+import { apiClient } from "@/lib/api";
+import { useAuthStore } from "@/lib/store/auth";
 
 export default function RegisterPage() {
-  const handleRegister = async (data: any) => {
-    // Backend dev will implement this
-    console.log("Register data:", data);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  const handleRegister = async (data: AuthFormData) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const result = await apiClient("/auth/register/", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      useAuthStore.getState().setTokens(result.access, result.refresh);
+      useAuthStore.getState().setUser(result.user);
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const apiErr = err as { data?: Record<string, string[]> };
+      if (apiErr.data) {
+        const messages = Object.entries(apiErr.data)
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
+          .join(". ");
+        setError(messages);
+      } else {
+        setError("Registration failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialLogin = (provider: "google" | "apple") => {
-    // Backend dev will implement this
+    // TODO: implement social login
     console.log("Social login:", provider);
   };
 
@@ -64,10 +94,17 @@ export default function RegisterPage() {
       </div>
 
       {/* Register Form */}
+      {error && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <AuthForm
         mode="register"
         onSubmit={handleRegister}
         onSocialLogin={handleSocialLogin}
+        isLoading={isLoading}
       />
 
       {/* Divider */}
