@@ -42,8 +42,19 @@ SHARED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',  # Add rest_framework to shared apps
+    'django.contrib.sites',
+    'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
+    'django_filters',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.apple',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+    'drf_spectacular',
     'api',
     'users',
 ]
@@ -52,10 +63,12 @@ TENANT_APPS = [
     # Apps that are tenant-specific
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    # Add tenant-specific apps here
+    'outlets',
+    'products',
+    'sales',
 ]
 
-INSTALLED_APPS = list(set(SHARED_APPS + TENANT_APPS))
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -69,6 +82,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -169,12 +183,39 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-    )
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Nexus ERP API',
+    'DESCRIPTION': 'Multi-tenant Fuel Station ERP — API Documentation',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Auth', 'description': 'Authentication & social login'},
+        {'name': 'Users', 'description': 'User management'},
+        {'name': 'Outlets', 'description': 'Outlet management'},
+        {'name': 'Categories', 'description': 'Product categories'},
+        {'name': 'Products', 'description': 'Product catalog & stock'},
+        {'name': 'Shifts', 'description': 'Cashier shift management'},
+        {'name': 'Checkout', 'description': 'POS checkout'},
+        {'name': 'Sales', 'description': 'Sale history & receipts'},
+        {'name': 'Discounts', 'description': 'Discount management'},
+    ],
 }
 
 # Cache
@@ -186,4 +227,80 @@ CACHES = {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
+}
+
+# django-allauth
+SITE_ID = 1
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': config('GOOGLE_CLIENT_ID', default=''),
+            'secret': config('GOOGLE_CLIENT_SECRET', default=''),
+        },
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+    },
+    'apple': {
+        'APP': {
+            'client_id': config('APPLE_CLIENT_ID', default=''),
+            'secret': config('APPLE_CLIENT_SECRET', default=''),
+            'key': config('APPLE_KEY_ID', default=''),
+            'certificate_key': config('APPLE_CERTIFICATE_KEY', default=''),
+        },
+    },
+}
+
+# dj-rest-auth
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_HTTPONLY': False,
+}
+
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': config('DJANGO_LOG_LEVEL', default='INFO'),
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': config('DB_LOG_LEVEL', default='WARNING'),
+            'propagate': False,
+        },
+        'sales': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
 }

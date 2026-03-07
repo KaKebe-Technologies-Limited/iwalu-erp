@@ -5,8 +5,8 @@
 **Team**: Backend (Django/PostgreSQL) + Frontend (Next.js)  
 **Stack**: Django 5.0/DRF, PostgreSQL 16, Redis, Next.js 14, TypeScript, Docker
 
-**Current Phase**: Authentication & User Management  
-**Status**: ✅ Auth working | 🚧 Dashboard + Users | ⏳ Next: POS
+**Current Phase**: POS & Sales Module
+**Status**: ✅ Auth + Users | ✅ POS Backend | 🚧 Frontend Integration | ⏳ Next: Inventory/Reporting
 
 ---
 
@@ -14,9 +14,20 @@
 
 ```
 erp/
+├── docs/                   # System documentation
+│   ├── architecture.md    # System overview, multi-tenancy, tech stack
+│   └── modules/           # Per-module documentation
+│       ├── auth-users.md
+│       ├── outlets.md
+│       ├── products.md
+│       └── pos-sales.md
 ├── backend/                # Django REST API
 │   ├── config/            # Settings, URLs
-│   ├── users/             # User management (models, views, serializers, permissions)
+│   ├── users/             # User management, auth, social login
+│   ├── outlets/           # Outlet management
+│   ├── products/          # Product catalog, categories, stock
+│   ├── sales/             # POS checkout, shifts, discounts, payments
+│   ├── tenants/           # Multi-tenancy
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/              # Next.js App
@@ -95,6 +106,9 @@ docker-compose exec backend python manage.py makemigrations
 docker-compose exec backend python manage.py createsuperuser
 docker-compose exec backend python manage.py test
 docker-compose exec backend python manage.py shell
+
+# Tenant management
+docker-compose exec backend python manage.py create_tenant "Business Name" "demo.localhost"
 
 # Database access
 docker-compose exec db psql -U nexus_user -d nexus_db
@@ -255,11 +269,21 @@ export function UserTable({ users, onEdit }: UserTableProps) {
 
 ## API Reference
 
+### Documentation
+```
+GET    /api/docs/                    → Swagger UI (interactive)
+GET    /api/redoc/                   → ReDoc (readable)
+GET    /api/schema/                  → OpenAPI 3.0 schema (JSON/YAML)
+```
+
 ### Authentication
 ```
-POST   /api/auth/login/      → { access, refresh }
-POST   /api/auth/refresh/    → { access }
-GET    /api/auth/me/         → User object (requires auth)
+POST   /api/auth/login/              → { access, refresh }
+POST   /api/auth/refresh/            → { access }
+GET    /api/auth/me/                 → User object (requires auth)
+POST   /api/auth/register/           → Self-registration
+POST   /api/auth/social/google/      → Google OAuth → { access, refresh, user }
+POST   /api/auth/social/apple/       → Apple OAuth → { access, refresh, user }
 ```
 
 ### Users
@@ -270,8 +294,41 @@ GET    /api/users/{id}/               → Retrieve
 PATCH  /api/users/{id}/               → Update (admin/manager)
 POST   /api/users/{id}/deactivate/   → Deactivate (admin only)
 POST   /api/users/{id}/activate/     → Activate (admin only)
+```
 
-Query params: ?search=john&ordering=-created_at
+### Outlets
+```
+CRUD   /api/outlets/                  → Outlet management (write: admin/manager)
+```
+
+### Products & Categories
+```
+CRUD   /api/categories/               → Category management (write: admin/manager)
+CRUD   /api/products/                  → Product catalog (write: admin/manager)
+GET    /api/products/low_stock/        → Low stock products
+POST   /api/products/{id}/adjust_stock/ → Stock adjustment (admin/manager)
+```
+
+### Shifts
+```
+GET    /api/shifts/                    → List shifts
+POST   /api/shifts/open/               → Open shift (cashier+)
+POST   /api/shifts/{id}/close/         → Close shift
+GET    /api/shifts/my_current/         → Current user's open shift
+```
+
+### Sales & Checkout
+```
+POST   /api/checkout/                  → Process sale (requires open shift)
+GET    /api/sales/                     → Sale history (paginated)
+GET    /api/sales/{id}/                → Sale detail with items + payments
+POST   /api/sales/{id}/void/           → Void sale (admin/manager)
+GET    /api/sales/{id}/receipt/        → Receipt data
+```
+
+### Discounts
+```
+CRUD   /api/discounts/                 → Discount management (write: admin/manager)
 ```
 
 ### Authentication Flow
@@ -430,6 +487,6 @@ Use exact paths: `backend/users/views.py`, `frontend/app/(dashboard)/dashboard/u
 - Project Stage: @'Nexus ERP – Full System Proposal.pdf' Only refer to this to see what stage the project is at and what the next step should be.
 ---
 
-**Last Updated**: February 2026  
-**Current Phase**: 2 - Authentication & User Management  
-**Next Phase**: 3 - POS & Sales Module
+**Last Updated**: March 2026
+**Current Phase**: 3 - POS & Sales Module (Backend Complete)
+**Next Phase**: 4 - Inventory Management & Reporting
