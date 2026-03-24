@@ -51,9 +51,53 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def adjust_stock(self, request, pk=None):
-        product = self.get_object()
+        from django.db import transaction
+        from inventory.models import OutletStock, StockAuditLog
+
         serializer = StockAdjustmentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        product.stock_quantity += serializer.validated_data['quantity']
-        product.save(update_fields=['stock_quantity', 'updated_at'])
+
+        qty_change = serializer.validated_data['quantity']
+        reason = serializer.validated_data['reason']
+        outlet_id = request.data.get('outlet_id')
+
+        # Validate outlet up front if provided
+        outlet = None
+        if outlet_id:
+            from outlets.models import Outlet
+            try:
+                outlet = Outlet.objects.get(pk=outlet_id)
+            except Outlet.DoesNotExist:
+                return Response(
+                    {'outlet_id': 'Outlet not found.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=pk)
+            qty_before = product.stock_quantity
+            product.stock_quantity += qty_change
+            product.save(update_fields=['stock_quantity', 'updated_at'])
+
+            if outlet:
+                outlet_stock, _ = OutletStock.objects.select_for_update().get_or_create(
+                    outlet=outlet, product=product,
+                    defaults={'quantity': 0},
+                )
+                outlet_stock.quantity += qty_change
+                outlet_stock.save(update_fields=['quantity', 'updated_at'])
+
+            StockAuditLog.objects.create(
+                product=product,
+                outlet=outlet,
+                movement_type='adjustment',
+                quantity_change=qty_change,
+                quantity_before=qty_before,
+                quantity_after=product.stock_quantity,
+                reference_type='StockAdjustment',
+                user_id=request.user.id,
+                notes=reason,
+            )
+
+        product.refresh_from_db()
         return Response(ProductSerializer(product).data)

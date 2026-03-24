@@ -66,6 +66,8 @@ TENANT_APPS = [
     'outlets',
     'products',
     'sales',
+    'inventory',
+    'reports',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -215,6 +217,12 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Checkout', 'description': 'POS checkout'},
         {'name': 'Sales', 'description': 'Sale history & receipts'},
         {'name': 'Discounts', 'description': 'Discount management'},
+        {'name': 'Suppliers', 'description': 'Supplier management'},
+        {'name': 'Outlet Stock', 'description': 'Per-outlet stock levels'},
+        {'name': 'Purchase Orders', 'description': 'Procurement workflow'},
+        {'name': 'Stock Transfers', 'description': 'Inter-outlet stock transfers'},
+        {'name': 'Stock Audit Log', 'description': 'Immutable stock movement history'},
+        {'name': 'Reports', 'description': 'Sales, inventory & shift reports'},
     ],
 }
 

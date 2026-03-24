@@ -6,6 +6,11 @@ from rest_framework.exceptions import ValidationError
 from products.models import Product
 from .models import Discount, Sale, SaleItem, Payment
 
+# Lazy imports to avoid circular imports
+def _get_inventory_models():
+    from inventory.models import OutletStock, StockAuditLog
+    return OutletStock, StockAuditLog
+
 
 def generate_receipt_number(outlet_id):
     """Generate receipt number: OUT{id}-YYYYMMDD-NNNN"""
@@ -125,8 +130,23 @@ def process_checkout(shift, cashier_id, items_data, payments_data,
 
             # Deduct stock
             if product.track_stock:
+                OutletStock, StockAuditLog = _get_inventory_models()
+                qty_before = product.stock_quantity
                 product.stock_quantity -= quantity
                 product.save(update_fields=['stock_quantity', 'updated_at'])
+
+                # Deduct from OutletStock
+                outlet_stock, _ = OutletStock.objects.select_for_update().get_or_create(
+                    outlet=shift.outlet, product=product,
+                    defaults={'quantity': Decimal('0.000')},
+                )
+                outlet_stock.quantity -= quantity
+                outlet_stock.save(update_fields=['quantity', 'updated_at'])
+
+                sale_items[-1]['_stock_deducted'] = {
+                    'qty_before': qty_before,
+                    'qty_after': product.stock_quantity,
+                }
 
         # Sale-level discount
         sale_discount_amount = apply_discount(subtotal - item_discount_total, sale_discount)
@@ -157,9 +177,23 @@ def process_checkout(shift, cashier_id, items_data, payments_data,
             notes=notes,
         )
 
-        # Create sale items
+        # Create sale items and audit logs
+        OutletStock, StockAuditLog = _get_inventory_models()
         for item in sale_items:
+            stock_info = item.pop('_stock_deducted', None)
             SaleItem.objects.create(sale=sale, **item)
+            if stock_info:
+                StockAuditLog.objects.create(
+                    product=item['product'],
+                    outlet=shift.outlet,
+                    movement_type='sale',
+                    quantity_change=-item['quantity'],
+                    quantity_before=stock_info['qty_before'],
+                    quantity_after=stock_info['qty_after'],
+                    reference_type='Sale',
+                    reference_id=sale.pk,
+                    user_id=cashier_id,
+                )
 
         # Create payments
         for payment_data in payments_data:

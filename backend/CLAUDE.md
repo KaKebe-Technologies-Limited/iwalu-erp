@@ -17,6 +17,8 @@ backend/
 ├── outlets/         # Outlet management (fuel_station, cafe, supermarket, etc.)
 ├── products/        # Category + Product catalog, stock management
 ├── sales/           # Discounts, shifts, checkout, sale history, payments
+├── inventory/       # Suppliers, outlet stock, purchase orders, transfers, audit log
+├── reports/         # Sales/inventory/shift analytics, dashboard summary
 ├── manage.py
 ├── requirements.txt
 └── Dockerfile
@@ -28,7 +30,7 @@ backend/
 - **User model**: `users.User` extends `AbstractUser`, email as `USERNAME_FIELD`
 - **Roles**: admin, manager, cashier, attendant, accountant
 - **Multi-tenancy**: `django-tenants` with PostgreSQL schema isolation
-- **Tenant-scoped apps**: outlets, products, sales (in TENANT_APPS)
+- **Tenant-scoped apps**: outlets, products, sales, inventory, reports (in TENANT_APPS)
 - **User references in tenant apps**: `IntegerField(user_id)` not ForeignKey (cross-schema FK limitation)
 - **Database**: PostgreSQL 16 via `django_tenants.postgresql_backend`
 - **Cache**: Redis 7 via `django-redis`
@@ -60,6 +62,10 @@ docker-compose exec backend python manage.py shell
 docker-compose exec db psql -U nexus_user -d nexus_db
 docker-compose logs -f backend
 ```
+
+## Quality Gates
+- **Before pushing or completing a feature**: Run the `security-reviewer` agent to audit changes for vulnerabilities (OWASP top 10, Django-specific issues, permission gaps)
+- **After adding a new module**: Create documentation in `docs/modules/` and update STATUS.md
 
 ## Standards
 Refer to backend standards in @../CLAUDE.md

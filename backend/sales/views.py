@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from products.models import Product
 from users.permissions import IsAdminOrManager, IsCashierOrAbove
 from .models import Discount, Shift, Sale, Payment
 from .serializers import (
@@ -133,6 +134,9 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'])
     def void(self, request, pk=None):
+        from django.db import transaction
+        from inventory.models import OutletStock, StockAuditLog
+
         self.permission_classes = [IsAdminOrManager]
         self.check_permissions(request)
 
@@ -143,15 +147,36 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Restore stock
-        for item in sale.items.select_related('product').all():
-            product = item.product
-            if product.track_stock:
-                product.stock_quantity += item.quantity
-                product.save(update_fields=['stock_quantity', 'updated_at'])
+        with transaction.atomic():
+            for item in sale.items.select_related('product').all():
+                product = Product.objects.select_for_update().get(pk=item.product_id)
+                if product.track_stock:
+                    qty_before = product.stock_quantity
+                    product.stock_quantity += item.quantity
+                    product.save(update_fields=['stock_quantity', 'updated_at'])
 
-        sale.status = 'voided'
-        sale.save(update_fields=['status', 'updated_at'])
+                    outlet_stock, _ = OutletStock.objects.select_for_update().get_or_create(
+                        outlet=sale.outlet, product=product,
+                        defaults={'quantity': Decimal('0.000')},
+                    )
+                    outlet_stock.quantity += item.quantity
+                    outlet_stock.save(update_fields=['quantity', 'updated_at'])
+
+                    StockAuditLog.objects.create(
+                        product=product,
+                        outlet=sale.outlet,
+                        movement_type='void',
+                        quantity_change=item.quantity,
+                        quantity_before=qty_before,
+                        quantity_after=product.stock_quantity,
+                        reference_type='Sale',
+                        reference_id=sale.pk,
+                        user_id=request.user.id,
+                    )
+
+            sale.status = 'voided'
+            sale.save(update_fields=['status', 'updated_at'])
+
         return Response(SaleSerializer(sale).data)
 
     @action(detail=True, methods=['get'])
