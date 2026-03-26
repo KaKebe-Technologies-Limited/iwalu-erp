@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useGoogleLogin } from "@react-oauth/google";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { apiClient } from "@/lib/api";
 import { useAuthStore } from "@/lib/store/auth";
@@ -12,6 +13,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const storeAuthAndRedirect = async (tokens: { access: string; refresh: string }) => {
+    useAuthStore.getState().setTokens(tokens.access, tokens.refresh);
+    const user = await apiClient("/auth/me/");
+    useAuthStore.getState().setUser(user);
+    router.push("/dashboard");
+  };
+
   const handleLogin = async (data: { email: string; password: string }) => {
     setIsLoading(true);
     setError("");
@@ -20,12 +28,7 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify(data),
       });
-      useAuthStore.getState().setTokens(tokens.access, tokens.refresh);
-
-      const user = await apiClient("/auth/me/");
-      useAuthStore.getState().setUser(user);
-
-      router.push("/dashboard");
+      await storeAuthAndRedirect(tokens);
     } catch {
       setError("Invalid email or password. Please try again.");
     } finally {
@@ -33,9 +36,29 @@ export default function LoginPage() {
     }
   };
 
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const tokens = await apiClient("/auth/social/google/", {
+          method: "POST",
+          body: JSON.stringify({ access_token: tokenResponse.access_token }),
+        });
+        await storeAuthAndRedirect(tokens);
+      } catch {
+        setError("Google sign-in failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => setError("Google sign-in was cancelled."),
+  });
+
   const handleSocialLogin = (provider: "google" | "apple") => {
-    // TODO: implement social login
-    console.log("Social login:", provider);
+    if (provider === "google") {
+      googleLogin();
+    }
   };
 
   return (

@@ -1,10 +1,12 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface User {
   id: string;
   email: string;
   firstName?: string;
   lastName?: string;
+  role?: string;
 }
 
 interface AuthState {
@@ -16,12 +18,19 @@ interface AuthState {
   clearAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
-  refreshToken: null,
-  user: null,
-  setTokens: (access, refresh) =>
-    set({ accessToken: access, refreshToken: refresh }),
-  setUser: (user) => set({ user }),
-  clearAuth: () => set({ accessToken: null, refreshToken: null, user: null }),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      setTokens: (access, refresh) =>
+        set({ accessToken: access, refreshToken: refresh }),
+      setUser: (user) => set({ user }),
+      clearAuth: () => set({ accessToken: null, refreshToken: null, user: null }),
+    }),
+    {
+      name: 'nexus-auth',
+    }
+  )
+);
