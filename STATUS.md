@@ -1,8 +1,8 @@
 # Nexus ERP - Current Status
 
 **Last Updated**: 30 March 2026
-**Current Phase**: 4 — Inventory Management & Reporting (Complete)
-**Overall Progress**: ~75% (Phases 1-4 complete, Phase 5-6 remaining)
+**Current Phase**: 5 — Finance & HR (Backend Complete)
+**Overall Progress**: ~80% (Phases 1-5 backend complete, frontend integration pending for Phase 5)
 
 ---
 
@@ -14,7 +14,7 @@
 | 2 | Outlets & Products | Done | Done | Complete |
 | 3 | POS & Sales | Done | Hooks ready | Complete |
 | 4 | Inventory & Reports | Done | Hooks + API wired | Complete |
-| 5 | Finance & HR | Not started | Not started | Next |
+| 5 | Finance & HR | Done | Pending | Backend Complete |
 | 6 | Advanced Features | Not started | Not started | Future |
 
 ---
@@ -52,10 +52,10 @@
 | Shifts | `/dashboard/shifts` | Done | Done | Done (mock) |
 | Inventory | `/dashboard/inventory` | Done | Done | Done (API wired) |
 | Reports | `/dashboard/reports` | Done | Done | Done (API wired) |
-| Fuel Station | `/dashboard/fuel` | Pending (Phase 5+) | Pending | Done (mock) |
+| Fuel Station | `/dashboard/fuel` | Pending (Phase 6) | Pending | Done (mock) |
 | POS | `/dashboard/pos` | Done | Pending | Done (mock) |
-| Accounting | `/dashboard/accounting` | Pending (Phase 5) | Pending | Done (mock) |
-| Employees | `/dashboard/employees` | Partial (users API) | Pending | Done (mock) |
+| Accounting | `/dashboard/accounting` | Done | Pending | Done (mock) |
+| Employees | `/dashboard/employees` | Done | Pending | Done (mock) |
 | Branches | `/dashboard/branches` | Partial (outlets API) | Pending | Done (mock) |
 | Settings | `/dashboard/settings` | Pending | Pending | Done (mock) |
 
@@ -71,6 +71,8 @@
 | sales | 5 | 11 | 15 | `docs/modules/pos-sales.md` |
 | inventory | 7 | 13+ | 46+ | `docs/modules/inventory.md` |
 | reports | 0 (aggregation) | 9 | 14 | `docs/modules/reports.md` |
+| finance | 4 | 15 | 15 | `docs/modules/finance.md` |
+| hr | 9 | 22 | 11 | `docs/modules/hr.md` |
 
 ---
 
@@ -90,6 +92,7 @@
 | `useOutletStock.ts` | outletStock, lowStock | — | Inventory |
 | `useStockAuditLog.ts` | auditLog | — | Inventory |
 | `useReports.ts` | dashboard, salesSummary, salesByOutlet, salesByProduct, salesByPaymentMethod, hourlySales, stockLevels, stockMovement, shiftSummary | — | Reports |
+| `useUsers.ts` | users | create, update, activate, deactivate | — |
 
 ---
 
@@ -101,12 +104,12 @@
 
 ## Next Steps (Priority Order)
 
-### Phase 5 — Finance & HR
-1. Double-entry accounting (chart of accounts, journal entries)
-2. Automated journal entries from POS/inventory transactions
-3. Payroll processing (NSSF/PAYE deductions for Uganda)
-4. Leave management workflows
-5. Attendance system (clock-in/out)
+### Phase 5 — Frontend Integration (Finance & HR)
+1. TypeScript interfaces for finance and HR models
+2. TanStack Query hooks for accounts, journal entries, fiscal periods
+3. TanStack Query hooks for employees, departments, leave, attendance, payroll
+4. Wire Accounting page to live API
+5. Wire Employees page to live API
 
 ### Phase 6 — Advanced Features
 6. PDF/Excel report export (server-side generation)

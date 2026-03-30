@@ -68,6 +68,8 @@ TENANT_APPS = [
     'sales',
     'inventory',
     'reports',
+    'finance',
+    'hr',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -223,6 +225,15 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Stock Transfers', 'description': 'Inter-outlet stock transfers'},
         {'name': 'Stock Audit Log', 'description': 'Immutable stock movement history'},
         {'name': 'Reports', 'description': 'Sales, inventory & shift reports'},
+        {'name': 'Accounts', 'description': 'Chart of accounts'},
+        {'name': 'Fiscal Periods', 'description': 'Accounting periods'},
+        {'name': 'Journal Entries', 'description': 'Double-entry journal entries'},
+        {'name': 'Financial Reports', 'description': 'Trial balance, P&L, balance sheet'},
+        {'name': 'Departments', 'description': 'Department management'},
+        {'name': 'Employees', 'description': 'Employee records'},
+        {'name': 'Leave', 'description': 'Leave types, requests, and balances'},
+        {'name': 'Attendance', 'description': 'Clock in/out and attendance records'},
+        {'name': 'Payroll', 'description': 'Payroll periods and pay slips'},
     ],
 }
 

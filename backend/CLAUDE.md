@@ -19,6 +19,8 @@ backend/
 ├── sales/           # Discounts, shifts, checkout, sale history, payments
 ├── inventory/       # Suppliers, outlet stock, purchase orders, transfers, audit log
 ├── reports/         # Sales/inventory/shift analytics, dashboard summary
+├── finance/         # Chart of accounts, journal entries, financial reports
+├── hr/              # Employees, departments, leave, attendance, payroll
 ├── manage.py
 ├── requirements.txt
 └── Dockerfile
@@ -30,7 +32,7 @@ backend/
 - **User model**: `users.User` extends `AbstractUser`, email as `USERNAME_FIELD`
 - **Roles**: admin, manager, cashier, attendant, accountant
 - **Multi-tenancy**: `django-tenants` with PostgreSQL schema isolation
-- **Tenant-scoped apps**: outlets, products, sales, inventory, reports (in TENANT_APPS)
+- **Tenant-scoped apps**: outlets, products, sales, inventory, reports, finance, hr (in TENANT_APPS)
 - **User references in tenant apps**: `IntegerField(user_id)` not ForeignKey (cross-schema FK limitation)
 - **Database**: PostgreSQL 16 via `django_tenants.postgresql_backend`
 - **Cache**: Redis 7 via `django-redis`
@@ -42,6 +44,8 @@ backend/
 - `IsAdmin` — admin only
 - `IsAdminOrManager` — admin + manager
 - `IsCashierOrAbove` — admin + manager + cashier + attendant (excludes accountant)
+- `IsAccountant` — accountant only
+- `IsAccountantOrAbove` — admin + manager + accountant
 
 ## Conventions
 - Models: timestamps (`created_at`, `updated_at`), `ordering = ['-created_at']`
@@ -54,13 +58,13 @@ backend/
 ## Quick Commands
 ```bash
 # All commands from project root (where docker-compose.yml lives)
-docker-compose exec backend python manage.py makemigrations
-docker-compose exec backend python manage.py migrate
-docker-compose exec backend python manage.py test
-docker-compose exec backend python manage.py createsuperuser
-docker-compose exec backend python manage.py shell
-docker-compose exec db psql -U nexus_user -d nexus_db
-docker-compose logs -f backend
+docker compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py test
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py shell
+docker compose exec db psql -U nexus_user -d nexus_db
+docker compose logs -f backend
 ```
 
 ## Quality Gates

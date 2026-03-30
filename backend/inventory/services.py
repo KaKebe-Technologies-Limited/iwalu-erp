@@ -134,6 +134,17 @@ def receive_purchase_order(po, items_received, user_id):
         po.status = 'received' if all_fully_received else 'partial'
         po.save(update_fields=['status', 'updated_at'])
 
+        # Create journal entry for received goods
+        total_cost = sum(
+            Decimal(str(i['quantity_received'])) * PurchaseOrderItem.objects.get(pk=i['po_item_id']).unit_cost
+            for i in items_received
+        )
+        try:
+            from finance.services import create_purchase_journal_entry
+            create_purchase_journal_entry(po, total_cost, user_id)
+        except Exception:
+            pass  # Don't fail the receive if JE creation fails
+
     po.refresh_from_db()
     return po
 

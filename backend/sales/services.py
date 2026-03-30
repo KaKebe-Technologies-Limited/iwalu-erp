@@ -204,4 +204,11 @@ def process_checkout(shift, cashier_id, items_data, payments_data,
                 reference=payment_data.get('reference', ''),
             )
 
+        # Create journal entry for the sale
+        try:
+            from finance.services import create_sale_journal_entry
+            create_sale_journal_entry(sale)
+        except Exception:
+            pass  # Don't fail the sale if JE creation fails (e.g. no chart of accounts)
+
         return sale

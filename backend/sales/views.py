@@ -177,6 +177,13 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
             sale.status = 'voided'
             sale.save(update_fields=['status', 'updated_at'])
 
+            # Void the corresponding journal entry
+            try:
+                from finance.services import create_sale_void_journal_entry
+                create_sale_void_journal_entry(sale, request.user.pk)
+            except Exception:
+                pass  # Don't fail the void if JE reversal fails
+
         return Response(SaleSerializer(sale).data)
 
     @action(detail=True, methods=['get'])
