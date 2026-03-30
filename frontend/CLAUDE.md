@@ -23,9 +23,9 @@
 ## Quick Commands
 ```bash
 # Run from /frontend directory
-npm run dev
-npm run lint
-npm run type-check
+pnpm run dev
+pnpm run lint
+pnpm run type-check
 ```
 
 ## Standards

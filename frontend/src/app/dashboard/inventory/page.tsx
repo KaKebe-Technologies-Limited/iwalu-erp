@@ -2,52 +2,12 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-
-// ── Mock data ───────────────────────────────────────────────────────────────
-
-const inventoryKPIs = [
-  { label: "Total Products", value: "248", sub: "Across all categories", color: "emerald" },
-  { label: "Low Stock Items", value: "12", sub: "Below reorder level", color: "red" },
-  { label: "Stock Value", value: "UGX 186M", sub: "At cost price", color: "blue" },
-  { label: "Categories", value: "14", sub: "Active categories", color: "violet" },
-];
-
-const products = [
-  { name: "Motor Oil 1L (Shell)", sku: "MO-SH-1L", category: "Lubricants", stock: 28, reorder: 50, cost: "UGX 12,000", price: "UGX 16,000", status: "Low Stock" },
-  { name: "Bottled Water 500ml", sku: "BW-500", category: "Beverages", stock: 340, reorder: 100, cost: "UGX 800", price: "UGX 1,500", status: "In Stock" },
-  { name: "Coca-Cola 500ml", sku: "CC-500", category: "Beverages", stock: 180, reorder: 80, cost: "UGX 1,200", price: "UGX 2,000", status: "In Stock" },
-  { name: "Bread (White Loaf)", sku: "BR-WH", category: "Bakery", stock: 12, reorder: 30, cost: "UGX 2,500", price: "UGX 4,000", status: "Low Stock" },
-  { name: "Cigarettes (Sportsman)", sku: "CG-SP", category: "Tobacco", stock: 54, reorder: 40, cost: "UGX 3,000", price: "UGX 5,000", status: "In Stock" },
-  { name: "Biscuits (Assorted)", sku: "BS-AST", category: "Snacks", stock: 96, reorder: 50, cost: "UGX 1,000", price: "UGX 2,000", status: "In Stock" },
-  { name: "Motor Oil 5L (Total)", sku: "MO-TT-5L", category: "Lubricants", stock: 8, reorder: 20, cost: "UGX 48,000", price: "UGX 65,000", status: "Low Stock" },
-  { name: "Air Freshener", sku: "AF-001", category: "Car Care", stock: 42, reorder: 20, cost: "UGX 5,000", price: "UGX 8,000", status: "In Stock" },
-  { name: "Phone Charger (USB-C)", sku: "PC-USC", category: "Electronics", stock: 15, reorder: 10, cost: "UGX 8,000", price: "UGX 15,000", status: "In Stock" },
-  { name: "Milk (Fresh 500ml)", sku: "MK-FR5", category: "Dairy", stock: 6, reorder: 25, cost: "UGX 2,000", price: "UGX 3,500", status: "Low Stock" },
-];
-
-const stockMovements = [
-  { id: "SM-401", type: "Stock In", product: "Bottled Water 500ml", qty: "+200 units", by: "Moses Kato", date: "Today, 8:30 AM", reference: "PO-0089" },
-  { id: "SM-400", type: "Sale", product: "Motor Oil 1L (Shell)", qty: "-3 units", by: "POS Auto", date: "Today, 8:15 AM", reference: "POS-3042" },
-  { id: "SM-399", type: "Transfer", product: "Bread (White Loaf)", qty: "-20 units", by: "Sarah Nakamya", date: "Today, 7:00 AM", reference: "TF-0024" },
-  { id: "SM-398", type: "Stock In", product: "Coca-Cola 500ml", qty: "+120 units", by: "Moses Kato", date: "Yesterday, 4:00 PM", reference: "PO-0088" },
-  { id: "SM-397", type: "Adjustment", product: "Cigarettes (Sportsman)", qty: "-2 units", by: "Sarah Nakamya", date: "Yesterday, 3:30 PM", reference: "ADJ-0012" },
-];
-
-const suppliers = [
-  { name: "Mukwano Industries", contact: "+256 700 123 456", items: 34, lastOrder: "28 Feb 2026", outstanding: "UGX 2.4M" },
-  { name: "Shell Uganda Ltd", contact: "+256 700 234 567", items: 12, lastOrder: "25 Feb 2026", outstanding: "UGX 0" },
-  { name: "Century Bottling Co.", contact: "+256 700 345 678", items: 8, lastOrder: "1 Mar 2026", outstanding: "UGX 890K" },
-  { name: "Roofings Rolling Mills", contact: "+256 700 456 789", items: 5, lastOrder: "20 Feb 2026", outstanding: "UGX 0" },
-];
-
-const categories = [
-  { name: "Beverages", count: 42, value: "UGX 8.2M" },
-  { name: "Lubricants", count: 18, value: "UGX 45.6M" },
-  { name: "Snacks", count: 35, value: "UGX 3.8M" },
-  { name: "Car Care", count: 22, value: "UGX 12.4M" },
-  { name: "Bakery", count: 8, value: "UGX 1.2M" },
-  { name: "Tobacco", count: 6, value: "UGX 2.1M" },
-];
+import { useProducts, useLowStockProducts } from "@/lib/hooks/useProducts";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { useSuppliers } from "@/lib/hooks/useSuppliers";
+import { useStockAuditLog } from "@/lib/hooks/useStockAuditLog";
+import { useDashboard } from "@/lib/hooks/useReports";
+import type { Product, StockAuditLog } from "@/lib/types";
 
 const colorMap: Record<string, { bg: string; text: string; light: string }> = {
   emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50" },
@@ -56,19 +16,65 @@ const colorMap: Record<string, { bg: string; text: string; light: string }> = {
   red: { bg: "bg-red-500", text: "text-red-600", light: "bg-red-50" },
 };
 
-// ── Component ───────────────────────────────────────────────────────────────
+function movementBadge(type: StockAuditLog["movement_type"]) {
+  switch (type) {
+    case "purchase":
+      return { label: "IN", cls: "bg-emerald-50 text-emerald-700" };
+    case "sale":
+      return { label: "S", cls: "bg-blue-50 text-blue-700" };
+    case "transfer_out":
+      return { label: "TF", cls: "bg-violet-50 text-violet-700" };
+    case "transfer_in":
+      return { label: "TF", cls: "bg-teal-50 text-teal-700" };
+    case "void":
+      return { label: "V", cls: "bg-orange-50 text-orange-700" };
+    case "adjustment":
+    default:
+      return { label: "AD", cls: "bg-amber-50 text-amber-700" };
+  }
+}
+
+function formatCurrency(value: string | number) {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "UGX 0";
+  if (num >= 1_000_000) return `UGX ${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `UGX ${(num / 1_000).toFixed(0)}K`;
+  return `UGX ${num.toLocaleString()}`;
+}
 
 export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "low">("all");
 
-  const filteredProducts = products.filter((p) => {
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchFilter = filterStatus === "all" || p.status === "Low Stock";
-    return matchSearch && matchFilter;
-  });
+  const { data: productsData, isLoading: productsLoading } = useProducts({ search: searchQuery });
+  const { data: lowStockData } = useLowStockProducts();
+  const { data: categoriesData } = useCategories();
+  const { data: suppliersData } = useSuppliers();
+  const { data: auditData } = useStockAuditLog();
+  const { data: dashboardData } = useDashboard();
+
+  const allProducts = productsData?.results ?? [];
+  const lowStockProducts = lowStockData?.results ?? [];
+  const displayProducts = filterStatus === "low" ? lowStockProducts : allProducts;
+  const categories = categoriesData?.results ?? [];
+  const suppliers = suppliersData?.results ?? [];
+  const auditLogs = auditData?.results ?? [];
+
+  const totalProducts = productsData?.count ?? 0;
+  const lowStockCount = dashboardData?.low_stock_count ?? lowStockData?.count ?? 0;
+  const totalCategories = categoriesData?.count ?? 0;
+
+  const stockValue = allProducts.reduce(
+    (sum, p) => sum + parseFloat(p.cost_price || "0") * parseFloat(p.stock_quantity || "0"),
+    0
+  );
+
+  const kpis = [
+    { label: "Total Products", value: String(totalProducts), sub: "Across all categories", color: "emerald" },
+    { label: "Low Stock Items", value: String(lowStockCount), sub: "Below reorder level", color: "red" },
+    { label: "Stock Value", value: formatCurrency(stockValue), sub: "At cost price", color: "blue" },
+    { label: "Categories", value: String(totalCategories), sub: "Active categories", color: "violet" },
+  ];
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -92,7 +98,7 @@ export default function InventoryPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {inventoryKPIs.map((stat) => {
+        {kpis.map((stat) => {
           const c = colorMap[stat.color];
           return (
             <div key={stat.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
@@ -155,27 +161,38 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredProducts.map((product) => (
-                <tr key={product.sku} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-3 font-semibold text-gray-900">{product.name}</td>
-                  <td className="px-6 py-3">
-                    <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs font-mono">{product.sku}</span>
-                  </td>
-                  <td className="px-6 py-3 text-gray-600">{product.category}</td>
-                  <td className={cn("px-6 py-3 text-right font-bold", product.stock <= product.reorder ? "text-red-600" : "text-gray-900")}>
-                    {product.stock}
-                  </td>
-                  <td className="px-6 py-3 text-right text-gray-400">{product.reorder}</td>
-                  <td className="px-6 py-3 text-right text-gray-600">{product.cost}</td>
-                  <td className="px-6 py-3 text-right font-semibold text-gray-900">{product.price}</td>
-                  <td className="px-6 py-3 text-center">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-full text-xs font-semibold",
-                      product.status === "In Stock" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                    )}>{product.status}</span>
-                  </td>
-                </tr>
-              ))}
+              {productsLoading ? (
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Loading products...</td></tr>
+              ) : displayProducts.length === 0 ? (
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">No products found</td></tr>
+              ) : (
+                displayProducts.map((product: Product) => {
+                  const stock = parseFloat(product.stock_quantity || "0");
+                  const reorder = parseFloat(product.reorder_level || "0");
+                  const isLow = product.is_low_stock;
+                  return (
+                    <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-3 font-semibold text-gray-900">{product.name}</td>
+                      <td className="px-6 py-3">
+                        <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs font-mono">{product.sku}</span>
+                      </td>
+                      <td className="px-6 py-3 text-gray-600">{product.category_name}</td>
+                      <td className={cn("px-6 py-3 text-right font-bold", isLow ? "text-red-600" : "text-gray-900")}>
+                        {stock}
+                      </td>
+                      <td className="px-6 py-3 text-right text-gray-400">{reorder}</td>
+                      <td className="px-6 py-3 text-right text-gray-600">UGX {parseFloat(product.cost_price).toLocaleString()}</td>
+                      <td className="px-6 py-3 text-right font-semibold text-gray-900">UGX {parseFloat(product.selling_price).toLocaleString()}</td>
+                      <td className="px-6 py-3 text-center">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-full text-xs font-semibold",
+                          isLow ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
+                        )}>{isLow ? "Low Stock" : "In Stock"}</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -189,31 +206,37 @@ export default function InventoryPage() {
             <h2 className="text-lg font-bold text-gray-900">Recent Stock Movements</h2>
           </div>
           <div className="divide-y divide-gray-50">
-            {stockMovements.map((movement) => (
-              <div key={movement.id} className="px-6 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-                    movement.type === "Stock In" ? "bg-emerald-50 text-emerald-700" :
-                    movement.type === "Sale" ? "bg-blue-50 text-blue-700" :
-                    movement.type === "Transfer" ? "bg-violet-50 text-violet-700" :
-                    "bg-amber-50 text-amber-700"
-                  )}>
-                    {movement.type === "Stock In" ? "IN" : movement.type === "Sale" ? "S" : movement.type === "Transfer" ? "TF" : "AD"}
+            {auditLogs.length === 0 ? (
+              <div className="px-6 py-8 text-center text-gray-400">No stock movements yet</div>
+            ) : (
+              auditLogs.slice(0, 8).map((log: StockAuditLog) => {
+                const badge = movementBadge(log.movement_type);
+                const qtyChange = parseFloat(log.quantity_change);
+                const isPositive = qtyChange > 0;
+                return (
+                  <div key={log.id} className="px-6 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0", badge.cls)}>
+                        {badge.label}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{log.product_name}</p>
+                        <p className="text-xs text-gray-400">
+                          {log.reference_type && `${log.reference_type} #${log.reference_id}`}
+                          {log.outlet_name && ` \u00b7 ${log.outlet_name}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("text-sm font-bold", isPositive ? "text-emerald-600" : "text-red-600")}>
+                        {isPositive ? "+" : ""}{qtyChange}
+                      </p>
+                      <p className="text-xs text-gray-400">{new Date(log.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{movement.product}</p>
-                    <p className="text-xs text-gray-400">{movement.reference} &middot; {movement.by}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={cn("text-sm font-bold", movement.qty.startsWith("+") ? "text-emerald-600" : "text-red-600")}>
-                    {movement.qty}
-                  </p>
-                  <p className="text-xs text-gray-400">{movement.date}</p>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -223,15 +246,18 @@ export default function InventoryPage() {
             <h2 className="text-lg font-bold text-gray-900">Categories</h2>
           </div>
           <div className="p-5 space-y-3">
-            {categories.map((cat) => (
-              <div key={cat.name} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{cat.name}</p>
-                  <p className="text-xs text-gray-400">{cat.count} products</p>
+            {categories.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No categories yet</p>
+            ) : (
+              categories.slice(0, 8).map((cat) => (
+                <div key={cat.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{cat.name}</p>
+                    <p className="text-xs text-gray-400">{cat.business_unit}</p>
+                  </div>
                 </div>
-                <span className="text-sm font-bold text-gray-900 flex-shrink-0">{cat.value}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -240,7 +266,7 @@ export default function InventoryPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Suppliers</h2>
-          <button className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">View All</button>
+          <span className="text-sm text-gray-400">{suppliers.length} total</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -248,23 +274,30 @@ export default function InventoryPage() {
               <tr className="bg-gray-50">
                 <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Supplier</th>
                 <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Contact</th>
-                <th className="text-right px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Items</th>
-                <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Last Order</th>
-                <th className="text-right px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Outstanding</th>
+                <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Email</th>
+                <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Phone</th>
+                <th className="text-center px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {suppliers.map((supplier) => (
-                <tr key={supplier.name} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-3 font-semibold text-gray-900">{supplier.name}</td>
-                  <td className="px-6 py-3 text-gray-600">{supplier.contact}</td>
-                  <td className="px-6 py-3 text-right text-gray-600">{supplier.items}</td>
-                  <td className="px-6 py-3 text-gray-500">{supplier.lastOrder}</td>
-                  <td className={cn("px-6 py-3 text-right font-bold", supplier.outstanding === "UGX 0" ? "text-emerald-600" : "text-amber-600")}>
-                    {supplier.outstanding}
-                  </td>
-                </tr>
-              ))}
+              {suppliers.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400">No suppliers yet</td></tr>
+              ) : (
+                suppliers.map((supplier) => (
+                  <tr key={supplier.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-3 font-semibold text-gray-900">{supplier.name}</td>
+                    <td className="px-6 py-3 text-gray-600">{supplier.contact_person || "—"}</td>
+                    <td className="px-6 py-3 text-gray-600">{supplier.email || "—"}</td>
+                    <td className="px-6 py-3 text-gray-600">{supplier.phone || "—"}</td>
+                    <td className="px-6 py-3 text-center">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-semibold",
+                        supplier.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
+                      )}>{supplier.is_active ? "Active" : "Inactive"}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
