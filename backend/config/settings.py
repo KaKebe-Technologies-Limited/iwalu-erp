@@ -70,6 +70,7 @@ TENANT_APPS = [
     'reports',
     'finance',
     'hr',
+    'fuel',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -234,6 +235,11 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Leave', 'description': 'Leave types, requests, and balances'},
         {'name': 'Attendance', 'description': 'Clock in/out and attendance records'},
         {'name': 'Payroll', 'description': 'Payroll periods and pay slips'},
+        {'name': 'Fuel Pumps', 'description': 'Pump management'},
+        {'name': 'Fuel Tanks', 'description': 'Tank levels and readings'},
+        {'name': 'Fuel Deliveries', 'description': 'Fuel delivery tracking'},
+        {'name': 'Fuel Reconciliation', 'description': 'Daily fuel reconciliation'},
+        {'name': 'Fuel Reports', 'description': 'Pump, variance, and tank reports'},
     ],
 }
 

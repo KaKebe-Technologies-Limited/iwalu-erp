@@ -1,8 +1,8 @@
 # Nexus ERP - Current Status
 
-**Last Updated**: 30 March 2026
-**Current Phase**: 5 — Finance & HR (Backend Complete)
-**Overall Progress**: ~80% (Phases 1-5 backend complete, frontend integration pending for Phase 5)
+**Last Updated**: 3 April 2026
+**Current Phase**: 6 — Advanced Features (Fuel Station Management Complete)
+**Overall Progress**: ~85% (Phases 1-6a backend complete, frontend integration pending for Phases 5-6)
 
 ---
 
@@ -15,7 +15,9 @@
 | 3 | POS & Sales | Done | Hooks ready | Complete |
 | 4 | Inventory & Reports | Done | Hooks + API wired | Complete |
 | 5 | Finance & HR | Done | Pending | Backend Complete |
-| 6 | Advanced Features | Not started | Not started | Future |
+| 6a | Fuel Station Mgmt | Done | Pending | Backend Complete |
+| 6b | Notifications & Alerts | Not started | Not started | Next |
+| 6c | Mobile Money | Not started | Not started | Future |
 
 ---
 
@@ -52,7 +54,7 @@
 | Shifts | `/dashboard/shifts` | Done | Done | Done (mock) |
 | Inventory | `/dashboard/inventory` | Done | Done | Done (API wired) |
 | Reports | `/dashboard/reports` | Done | Done | Done (API wired) |
-| Fuel Station | `/dashboard/fuel` | Pending (Phase 6) | Pending | Done (mock) |
+| Fuel Station | `/dashboard/fuel` | Done | Pending | Done (mock) |
 | POS | `/dashboard/pos` | Done | Pending | Done (mock) |
 | Accounting | `/dashboard/accounting` | Done | Pending | Done (mock) |
 | Employees | `/dashboard/employees` | Done | Pending | Done (mock) |
@@ -73,6 +75,7 @@
 | reports | 0 (aggregation) | 9 | 14 | `docs/modules/reports.md` |
 | finance | 4 | 15 | 15 | `docs/modules/finance.md` |
 | hr | 9 | 22 | 11 | `docs/modules/hr.md` |
+| fuel | 6 | 18+ | ~40 | `docs/modules/fuel.md` |
 
 ---
 
@@ -111,12 +114,15 @@
 4. Wire Accounting page to live API
 5. Wire Employees page to live API
 
-### Phase 6 — Advanced Features
-6. PDF/Excel report export (server-side generation)
-7. Real-time dashboard updates (WebSocket or polling)
-8. Offline-first PWA (service worker, IndexedDB sync)
-9. Touch-friendly POS checkout screen
-10. Mobile Money integration (MTN MoMo, Airtel Money)
+### Phase 6b — Notifications & System Configuration
+6. Notification models (in-app, email, SMS)
+7. Alert rules for low fuel, variance, low stock
+8. System configuration (tenant-level settings)
+
+### Phase 6c — Mobile Money Integration
+9. MTN MoMo payment integration
+10. Airtel Money payment integration
+11. Payment reconciliation with sales module
 
 ---
 
