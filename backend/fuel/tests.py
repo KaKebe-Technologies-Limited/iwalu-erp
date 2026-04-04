@@ -254,8 +254,10 @@ class TankAPITest(FuelTestBase):
         self._auth(self.admin)
         response = self.client.get('/api/fuel/tanks/low-levels/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]['name'], 'Low Tank')
+        data = response.json()
+        results = data.get('results', data)  # handle paginated or flat
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['name'], 'Low Tank')
 
     def test_fill_percentage(self):
         tank = self._create_tank(

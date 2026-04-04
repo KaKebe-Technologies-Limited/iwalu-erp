@@ -132,7 +132,14 @@ def process_fuel_delivery(tank, supplier, volume_received, unit_cost,
         except ImportError:
             logger.info('Finance module not installed, skipping journal entry.')
         else:
-            create_purchase_journal_entry(delivery, total_cost, received_by)
+            try:
+                create_purchase_journal_entry(delivery, total_cost, received_by)
+            except Exception:
+                logger.error(
+                    'Failed to create journal entry for fuel delivery %s. '
+                    'Manual journal entry may be required.',
+                    delivery.pk, exc_info=True,
+                )
 
     return delivery
 
