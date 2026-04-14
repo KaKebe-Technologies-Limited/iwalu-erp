@@ -18,7 +18,8 @@
 | 6a | Fuel Station Mgmt | Done | Pending | Backend Complete |
 | 6b | Notifications & Config | Done | Pending | Backend Complete |
 | 6c | Payments (Integrated) | Done | Pending | Backend Complete |
-| 6d | Mobile Money (Direct) | Not started | Not started | Future |
+| 6d | Mobile Money (Direct) | Done | Pending | Backend Complete |
+| 7 | Pump Hardware & Fleet | Not started | Not started | Future |
 
 ---
 
