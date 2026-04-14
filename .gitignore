@@ -244,3 +244,8 @@ dist/
 
 # Miscellaneous
 *.tar.gz
+
+# Local docs and logs
+"Nexus ERP – Full System Proposal.docx"
+"Nexus ERP – Full System Proposal.docx:Zone.Identifier"
+json/

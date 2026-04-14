@@ -387,3 +387,125 @@ Group suggestion:
 - **Management**: Users, Outlets
 - **Inventory**: Products (includes Categories)
 - **Sales**: POS, Sales History, Shifts, Discounts
+
+---
+
+## 9. Role-Based Dashboard Access (Permissions)
+
+**Date**: April 2026
+**Context**: Backend supports fine-grained permissions to control dashboard visibility.
+
+### 9.1 Fetching Permissions
+Call this immediately after login (or on page refresh) to determine what the user can see.
+
+**Endpoint**: `GET /api/auth/me/permissions/`
+
+**Response**:
+```json
+{
+  "role": "cashier",
+  "sections": ["dashboard", "pos", "sales", "shifts", "products", "fuel", "notifications"],
+  "actions": ["open_shift", "close_shift", "process_sale"]
+}
+```
+
+### 9.2 Sidebar Visibility
+The `sections` array contains the names of the sidebar items the user is allowed to see. If a section is not in the array, hide it.
+
+### 9.3 Feature Gating
+The `actions` array contains fine-grained permissions. Use these to show/hide specific buttons or features (e.g., only show the "Void Sale" button if `void_sale` is in the `actions` array).
+
+### 9.4 Implementation Pattern
+1.  Store the `permissions` object in your Zustand auth store.
+2.  Create a `useHasPermission(action: string)` hook to easily check for actions in components.
+3.  Wrap protected routes with a guard component that checks the `sections` array.
+
+---
+
+## 8. Payments Module Integration (Phase 6c)
+
+**Date**: April 2026
+**Context**: Backend for integrated payments (MTN, Airtel, Pesapal) is complete.
+
+### 8.1 Payment Configuration (`/dashboard/settings/payments`)
+Admin page to configure credentials for providers.
+- Form to toggle providers (MTN, Airtel, Pesapal).
+- Input fields for consumer keys, secrets, and callback URLs.
+- **Security**: Secrets are write-only. They won't be returned by the API once saved.
+
+### 8.2 Initiating a Payment
+Use this when a customer chooses "Mobile Money" or "Card" at checkout.
+
+**Endpoint**: `POST /api/payments/initiate/`
+
+**Payload**:
+```typescript
+interface InitiatePaymentRequest {
+  amount: string;          // e.g. "50000.00"
+  method: 'mobile_money' | 'card' | 'bank';
+  provider?: 'mtn' | 'airtel' | 'pesapal' | 'mock';
+  phone_number?: string;   // Required for mobile_money
+  customer_email?: string;
+  customer_name?: string;
+  description?: string;
+  sale_id?: number;
+  currency?: string;       // Defaults to UGX
+}
+```
+
+**Response**:
+Returns a `PaymentTransaction` object.
+- If `provider` is `pesapal`, the response will contain a `redirect_url` in `response_payload`. You MUST open this URL in a new tab or iframe for the customer to complete the payment.
+- If `provider` is `mtn` or `airtel`, the customer will receive a USSD push on their phone.
+
+### 8.3 Polling for Status
+Since payments are asynchronous, you may need to poll the backend to see if a transaction has succeeded.
+
+**Endpoint**: `POST /api/payments/transactions/{id}/refresh_status/`
+
+Returns the updated `PaymentTransaction`. Check `status` for `success` or `failed`.
+
+### 8.4 Initiating a Disbursement
+Use this to send money from the business to a customer, staff member, or supplier.
+
+**Endpoint**: `POST /api/payments/disburse/`
+
+**Payload**:
+```typescript
+interface InitiateDisbursementRequest {
+  amount: string;          // e.g. "25000.00"
+  method: 'mobile_money';  // Currently only mobile_money supported
+  provider?: 'mtn' | 'airtel' | 'mock';
+  phone_number: string;    // Required
+  customer_name?: string;
+  description?: string;
+  currency?: string;       // Defaults to UGX
+}
+```
+
+### 8.5 New TypeScript Interfaces
+
+```typescript
+interface PaymentTransaction {
+  id: number;
+  sale: number | null;
+  provider: 'mock' | 'mtn' | 'airtel' | 'pesapal';
+  provider_display: string;
+  method: 'mobile_money' | 'card' | 'bank';
+  method_display: string;
+  status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'expired';
+  status_display: string;
+  is_terminal: boolean;
+  amount: string;
+  currency: string;
+  phone_number: string;
+  customer_email: string;
+  customer_name: string;
+  reference: string;
+  description: string;
+  provider_transaction_id: string;
+  response_payload: any;
+  error_message: string;
+  created_at: string;
+}
+```

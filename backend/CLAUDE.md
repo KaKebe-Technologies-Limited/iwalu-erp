@@ -21,6 +21,8 @@ backend/
 ├── reports/         # Sales/inventory/shift analytics, dashboard summary
 ├── finance/         # Chart of accounts, journal entries, financial reports
 ├── hr/              # Employees, departments, leave, attendance, payroll
+├── notifications/   # In-app notifications, preferences, templates
+├── system_config/   # Tenant settings, approval thresholds, audit settings
 ├── manage.py
 ├── requirements.txt
 └── Dockerfile
@@ -32,7 +34,7 @@ backend/
 - **User model**: `users.User` extends `AbstractUser`, email as `USERNAME_FIELD`
 - **Roles**: admin, manager, cashier, attendant, accountant
 - **Multi-tenancy**: `django-tenants` with PostgreSQL schema isolation
-- **Tenant-scoped apps**: outlets, products, sales, inventory, reports, finance, hr (in TENANT_APPS)
+- **Tenant-scoped apps**: outlets, products, sales, inventory, reports, finance, hr, fuel, notifications, system_config (in TENANT_APPS)
 - **User references in tenant apps**: `IntegerField(user_id)` not ForeignKey (cross-schema FK limitation)
 - **Database**: PostgreSQL 16 via `django_tenants.postgresql_backend`
 - **Cache**: Redis 7 via `django-redis`
