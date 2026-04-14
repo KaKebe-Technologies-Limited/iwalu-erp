@@ -71,6 +71,10 @@ TENANT_APPS = [
     'finance',
     'hr',
     'fuel',
+    'notifications',
+    'system_config',
+    'fiscalization',
+    'payments',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -123,6 +127,11 @@ DATABASE_ROUTERS = (
 TENANT_MODEL = 'tenants.Client'
 TENANT_DOMAIN_MODEL = 'tenants.Domain'
 SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+
+# Base domain used when constructing tenant URLs during self-service registration.
+# In local dev: 'localhost' → tenants live at '<schema>.localhost'.
+# In production: set via env var, e.g. 'nexuserp.com' → '<schema>.nexuserp.com'.
+TENANT_BASE_DOMAIN = config('TENANT_BASE_DOMAIN', default='localhost')
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
