@@ -193,8 +193,23 @@ class SaleViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def receipt(self, request, pk=None):
         sale = self.get_object()
-        serializer = SaleSerializer(sale)
-        return Response(serializer.data)
+        data = SaleSerializer(sale).data
+
+        # Attach EFRIS fiscal data (FDN, QR code, etc.) when available.
+        # Receipts printed in Uganda must show these when fiscalization is enabled.
+        try:
+            from fiscalization.services import get_fiscal_data
+            fiscal = get_fiscal_data(sale)
+            if fiscal is not None:
+                data['fiscal'] = fiscal
+        except Exception:
+            import logging
+            logging.getLogger(__name__).error(
+                'Failed to attach fiscal data to receipt for sale %s',
+                sale.pk, exc_info=True,
+            )
+
+        return Response(data)
 
 
 @api_view(['POST'])

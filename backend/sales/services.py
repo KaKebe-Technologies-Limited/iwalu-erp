@@ -217,4 +217,15 @@ def process_checkout(shift, cashier_id, items_data, payments_data,
                 sale.receipt_number, exc_info=True,
             )
 
+        # Submit for EFRIS fiscalization (non-blocking: failures are logged
+        # but the sale still succeeds and is retried asynchronously)
+        try:
+            from fiscalization.services import submit_sale_for_fiscalization
+            submit_sale_for_fiscalization(sale)
+        except Exception:
+            logger.error(
+                'Failed to submit sale %s for fiscalization',
+                sale.receipt_number, exc_info=True,
+            )
+
         return sale
