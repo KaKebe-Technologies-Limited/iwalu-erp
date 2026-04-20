@@ -42,8 +42,7 @@ export default function RegisterPage() {
         }
     };
 
-    const handleSocialLogin = (provider: "google" | "apple") => {
-        // TODO: implement social login
+    const handleSocialLogin = (provider: "google") => {
         console.log("Social login:", provider);
     };
 

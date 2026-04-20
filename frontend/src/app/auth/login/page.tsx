@@ -55,7 +55,7 @@ export default function LoginPage() {
     onError: () => setError("Google sign-in was cancelled."),
   });
 
-  const handleSocialLogin = (provider: "google" | "apple") => {
+  const handleSocialLogin = (provider: "google") => {
     if (provider === "google") {
       googleLogin();
     }
