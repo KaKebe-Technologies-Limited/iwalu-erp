@@ -579,3 +579,145 @@ export interface PayrollPeriod {
   created_at: string;
   updated_at: string;
 }
+
+// ── Fuel Station ─────────────────────────────────────────────────────────────
+
+export interface Pump {
+  id: number;
+  outlet: number;
+  outlet_name: string;
+  product: number;
+  product_name: string;
+  pump_number: number;
+  name: string;
+  status: 'active' | 'inactive' | 'maintenance';
+  status_display: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Tank {
+  id: number;
+  outlet: number;
+  outlet_name: string;
+  product: number;
+  product_name: string;
+  name: string;
+  capacity: string;
+  current_level: string;
+  reorder_level: string;
+  is_active: boolean;
+  fill_percentage: number;
+  is_low: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TankReading {
+  id: number;
+  tank: number;
+  tank_name: string;
+  reading_level: string;
+  reading_type: 'manual' | 'automatic' | 'delivery' | 'reconciliation';
+  reading_type_display: string;
+  recorded_by: number;
+  notes: string;
+  reading_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PumpReading {
+  id: number;
+  pump: number;
+  pump_number: number;
+  pump_name: string;
+  shift: number;
+  opening_reading: string;
+  closing_reading: string | null;
+  volume_dispensed: string | null;
+  recorded_by: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FuelDelivery {
+  id: number;
+  tank: number;
+  tank_name: string;
+  supplier: number;
+  supplier_name: string;
+  delivery_date: string;
+  volume_ordered: string | null;
+  volume_received: string;
+  unit_cost: string;
+  total_cost: string;
+  delivery_note_number: string;
+  tank_level_before: string;
+  tank_level_after: string;
+  received_by: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FuelReconciliation {
+  id: number;
+  date: string;
+  outlet: number;
+  outlet_name: string;
+  tank: number;
+  tank_name: string;
+  opening_stock: string;
+  closing_stock: string;
+  total_received: string;
+  total_dispensed: string;
+  expected_closing: string;
+  variance: string;
+  variance_percentage: string;
+  variance_type: 'gain' | 'loss' | 'within_tolerance';
+  variance_type_display: string;
+  status: 'draft' | 'confirmed';
+  notes: string;
+  reconciled_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyPumpReportEntry {
+  pump_number: number;
+  pump_name: string;
+  product: string;
+  outlet: string;
+  shift_id: number;
+  opening_reading: string;
+  closing_reading: string | null;
+  volume_dispensed: string | null;
+  recorded_by: number;
+}
+
+export interface DailyPumpProductTotal {
+  "pump__product__name": string;
+  total_volume: string | null;
+}
+
+export interface DailyPumpReport {
+  date: string;
+  pumps: DailyPumpReportEntry[];
+  totals_by_product: DailyPumpProductTotal[];
+}
+
+export interface VarianceReportSummary {
+  total_variance: string | null;
+  loss_count: number;
+  gain_count: number;
+  within_tolerance_count: number;
+}
+
+export interface VarianceReport {
+  date_from: string;
+  date_to: string;
+  reconciliations: FuelReconciliation[];
+  summary: VarianceReportSummary;
+}
