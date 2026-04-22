@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from users.permissions import IsAdmin, IsAdminOrManager
+from users.permissions import IsAdmin, IsAdminOrManager, IsAccountantOrAbove
 from .models import EfrisConfig, FiscalInvoice
 from .serializers import EfrisConfigSerializer, FiscalInvoiceSerializer
 from . import services
@@ -64,9 +64,12 @@ class FiscalInvoiceViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['created_at', 'submitted_at', 'retry_count']
 
     def get_permissions(self):
-        if self.action in ('retry',):
+        if self.action in ('retry', 'retry_all'):
             return [IsAdminOrManager()]
-        return [IsAuthenticated()]
+        # Fiscal invoices include customer totals + EFRIS payloads; restrict
+        # to roles that need them (finance/management) instead of every
+        # authenticated user.
+        return [IsAccountantOrAbove()]
 
     @action(detail=True, methods=['post'])
     def retry(self, request, pk=None):

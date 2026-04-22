@@ -5,7 +5,7 @@ Multi-tenant, offline-first ERP system for various kinds of enterprises.
 ## Setup
 
 ### Prerequisites
-- Docker Desktop installed
+- Docker installed
 - Git
 
 ### Installation
@@ -13,7 +13,7 @@ Multi-tenant, offline-first ERP system for various kinds of enterprises.
 1. Clone the repository
 ```bash
 git clone <your-repo-url>
-cd nexus-erp
+cd Nexus
 ```
 
 2. Create environment file
@@ -23,23 +23,23 @@ cp .env.example .env
 cp ./frontend/.env.local.example ./frontend/.env.local
 # Edit .env.local and add the correct backend API URL
 
-# P.S: If you have python and django installed globally, you can generate a secret key by running this command, copying the secret key to the .env file:
+# P.S: If you have python and django installed, you can generate a secret key by running this command, copying the secret key to the .env file:
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 3. Start Docker containers
 ```bash
-docker-compose up
+docker compose up
 ```
 
 4. Run migrations (in new terminal)
 ```bash
-docker-compose exec backend python manage.py migrate
+docker compose exec backend python manage.py migrate
 ```
 
 5. Create superuser
 ```bash
-docker-compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py createsuperuser
 ```
 
 6. Access the application
@@ -52,25 +52,25 @@ docker-compose exec backend python manage.py createsuperuser
 ### Backend (Django)
 ```bash
 # Run migrations
-docker-compose exec backend python manage.py migrate
+docker compose exec backend python manage.py migrate
 
 # Create new app
-docker-compose exec backend python manage.py startapp <app_name>
+docker compose exec backend python manage.py startapp <app_name>
 
 # Access Django shell
-docker-compose exec backend python manage.py shell
+docker compose exec backend python manage.py shell
 ```
 
 ### Database
 ```bash
 # Access PostgreSQL
-docker-compose exec db psql -U nexus_user -d nexus_db
+docker compose exec db psql -U nexus_user -d nexus_db
 ```
 
 ### Logs
 ```bash
-docker-compose logs backend
-docker-compose logs -f backend  # Follow logs
+docker compose logs backend
+docker compose logs -f backend  # Follow logs
 ```
 
 ## Tech Stack

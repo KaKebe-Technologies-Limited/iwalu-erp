@@ -11,15 +11,17 @@ class PaymentAPITests(TenantTestCase):
     def setUp(self):
         super().setUp()
         self.client = TenantClient(self.tenant)
+        # Use an admin user — payment config CRUD and disbursements are now
+        # admin-only (HIGH-severity findings from the Phase 6 security audit).
         self.user = User.objects.create_user(
-            email='cashier@test.com',
-            username='cashier',
+            email='admin@test.com',
+            username='paymentsadmin',
             password='password123',
-            role='cashier'
+            role='admin'
         )
         # Login to get JWT
         response = self.client.post('/api/auth/login/', {
-            'email': 'cashier@test.com',
+            'email': 'admin@test.com',
             'password': 'password123',
         })
         token = response.json()['access']

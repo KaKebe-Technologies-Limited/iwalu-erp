@@ -232,40 +232,129 @@ def query_payment_status(txn: PaymentTransaction) -> PaymentTransaction:
     return txn
 
 
-def handle_callback(provider_name: str, payload: dict) -> PaymentTransaction | None:
+def handle_callback(provider_name: str, payload: dict, request=None) -> PaymentTransaction | None:
     """
     Handle a webhook callback from a provider.
+
+    Security model:
+      1. Parse the payload to find the transaction (parse_callback never
+         mutates state).
+      2. Refuse to act on transactions that already reached a terminal
+         status — protects against replay attacks where an attacker resends
+         a captured "SUCCESSFUL" payload.
+      3. Refuse cross-provider callbacks (txn.provider must match).
+      4. ALWAYS re-query the provider for authoritative status. We never
+         trust the payload's claimed status, because for MTN/Airtel/Pesapal
+         the callback body is forgeable by anyone who can reach our public
+         webhook URL.
+      5. After re-query, sanity-check that the provider's reported amount/
+         currency match what we initiated; mismatch flips status to failed
+         and logs an alert (signals tampering or provider misroute).
     """
     try:
         provider = get_provider(provider_name=provider_name)
-        result = provider.parse_callback(payload)
+        parsed = provider.parse_callback(payload)
     except Exception as exc:
         logger.exception('Failed to parse %s callback: %s', provider_name, exc)
         return None
 
-    txn = _find_transaction_for_callback(provider_name, result, payload)
+    txn = _find_transaction_for_callback(provider_name, parsed, payload)
     if not txn:
+        logger.warning('Callback for %s could not be matched to a transaction.', provider_name)
+        return None
+
+    # (3) Cross-provider callback — refuse.
+    if txn.provider != provider_name:
         logger.warning(
-            'Callback for %s could not be matched to a transaction. payload=%s',
-            provider_name, payload,
+            'Callback provider mismatch: txn=%s expected=%s got=%s',
+            txn.reference, txn.provider, provider_name,
         )
         return None
 
+    # (2) Replay protection.
+    if txn.is_terminal:
+        logger.info(
+            'Ignoring callback for terminal txn %s (status=%s).',
+            txn.reference, txn.status,
+        )
+        return txn
+
     txn.callback_payload = payload
+    txn.save(update_fields=['callback_payload', 'updated_at'])
 
-    # Pesapal IPNs only tell us "something happened" — we still need to
-    # actively query for the authoritative status.
-    if provider_name == 'pesapal':
-        try:
-            result = provider.query_status(txn)
-        except Exception as exc:
-            logger.exception('Pesapal post-IPN query failed for %s', txn.reference)
-            txn.error_message = f'Post-IPN query error: {exc}'[:2000]
-            txn.save()
-            return txn
+    # (4) Re-query the provider for the authoritative status. The callback
+    # payload is treated purely as a "wake up and check" signal.
+    try:
+        authoritative = provider.query_status(txn)
+    except (ProviderError, ProviderRejectedError) as exc:
+        logger.warning('Post-callback query failed for %s: %s', txn.reference, exc)
+        txn.error_message = f'Post-callback query error: {exc}'[:2000]
+        txn.save(update_fields=['error_message', 'updated_at'])
+        return txn
+    except Exception as exc:
+        logger.exception('Unexpected post-callback query error for %s', txn.reference)
+        txn.error_message = f'Post-callback query error: {exc}'[:2000]
+        txn.save(update_fields=['error_message', 'updated_at'])
+        return txn
 
-    _apply_result(txn, result)
+    # (5) Amount/currency tamper check on success.
+    if authoritative.status == PaymentStatus.SUCCESS:
+        raw = authoritative.raw_response or {}
+        reported_amount = _extract_reported_amount(raw)
+        reported_currency = _extract_reported_currency(raw)
+        if reported_amount is not None and reported_amount != txn.amount:
+            logger.error(
+                'Amount mismatch on callback for %s: txn=%s reported=%s',
+                txn.reference, txn.amount, reported_amount,
+            )
+            authoritative.status = PaymentStatus.FAILED
+            authoritative.error_message = (
+                f'Amount mismatch: expected {txn.amount}, provider reported {reported_amount}'
+            )
+        elif reported_currency and reported_currency != txn.currency:
+            logger.error(
+                'Currency mismatch on callback for %s: txn=%s reported=%s',
+                txn.reference, txn.currency, reported_currency,
+            )
+            authoritative.status = PaymentStatus.FAILED
+            authoritative.error_message = (
+                f'Currency mismatch: expected {txn.currency}, got {reported_currency}'
+            )
+
+    _apply_result(txn, authoritative)
     return txn
+
+
+def _extract_reported_amount(raw: dict):
+    """Best-effort extraction of the provider-reported amount from query_status."""
+    if not isinstance(raw, dict):
+        return None
+    # MTN: top-level "amount"; Airtel: data.transaction.amount;
+    # Pesapal: amount or Amount.
+    candidates = [
+        raw.get('amount'),
+        raw.get('Amount'),
+        ((raw.get('data') or {}).get('transaction') or {}).get('amount'),
+    ]
+    for value in candidates:
+        if value is None:
+            continue
+        try:
+            return Decimal(str(value))
+        except (ValueError, ArithmeticError):
+            continue
+    return None
+
+
+def _extract_reported_currency(raw: dict):
+    if not isinstance(raw, dict):
+        return None
+    return (
+        raw.get('currency')
+        or raw.get('Currency')
+        or ((raw.get('data') or {}).get('transaction') or {}).get('currency')
+        or None
+    )
 
 
 def _find_transaction_for_callback(provider_name, result, payload):

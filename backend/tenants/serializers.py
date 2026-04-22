@@ -12,7 +12,10 @@ RESERVED_SCHEMA_NAMES = frozenset({
     'test', 'tests', 'postgres', 'information_schema', 'pg_catalog',
 })
 
-SCHEMA_NAME_PATTERN = re.compile(r'^[a-z][a-z0-9_]{2,29}$')
+# Subdomain-safe: lowercase letters/digits/hyphen, must start with a letter.
+# Underscores are intentionally disallowed because RFC1035 forbids them in
+# DNS labels (cookies, TLS hostnames, and many CDNs reject them).
+SCHEMA_NAME_PATTERN = re.compile(r'^[a-z][a-z0-9-]{2,29}$')
 
 
 class TenantRegistrationSerializer(serializers.Serializer):
@@ -43,8 +46,8 @@ class TenantRegistrationSerializer(serializers.Serializer):
 
         if not SCHEMA_NAME_PATTERN.match(value):
             raise serializers.ValidationError(
-                'Schema name must be 3-30 characters, lowercase letters, '
-                'digits, or underscores, and must start with a letter.'
+                'Identifier must be 3-30 characters, lowercase letters, '
+                'digits, or hyphens, and must start with a letter.'
             )
         if value in RESERVED_SCHEMA_NAMES:
             raise serializers.ValidationError(

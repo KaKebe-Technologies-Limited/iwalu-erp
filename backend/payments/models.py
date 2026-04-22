@@ -10,6 +10,8 @@ PaymentTransaction — one row per initiated payment. Tracks the full lifecycle
 from django.db import models
 from django.utils.timezone import now as timezone_now
 
+from config.validators import validate_provider_url
+
 
 class PaymentConfig(models.Model):
     """
@@ -45,6 +47,7 @@ class PaymentConfig(models.Model):
     mtn_base_url = models.URLField(
         blank=True,
         default='https://sandbox.momodeveloper.mtn.com',
+        validators=[validate_provider_url],
     )
     mtn_target_environment = models.CharField(
         max_length=32, blank=True, default='sandbox',
@@ -65,6 +68,7 @@ class PaymentConfig(models.Model):
     airtel_base_url = models.URLField(
         blank=True,
         default='https://openapiuat.airtel.africa',
+        validators=[validate_provider_url],
     )
     airtel_country = models.CharField(max_length=8, blank=True, default='UG')
     airtel_currency = models.CharField(max_length=3, blank=True, default='UGX')
@@ -82,6 +86,7 @@ class PaymentConfig(models.Model):
     pesapal_base_url = models.URLField(
         blank=True,
         default='https://cybqa.pesapal.com/pesapalv3',
+        validators=[validate_provider_url],
     )
     pesapal_ipn_id = models.CharField(
         max_length=128, blank=True,

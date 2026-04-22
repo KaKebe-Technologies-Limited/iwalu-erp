@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.timezone import now as timezone_now
 
+from config.validators import validate_provider_url
+
 
 class EfrisConfig(models.Model):
     """
@@ -36,7 +38,10 @@ class EfrisConfig(models.Model):
 
     # Weaf credentials (encrypted at-rest recommended for production)
     weaf_api_key = models.CharField(max_length=255, blank=True)
-    weaf_base_url = models.URLField(blank=True, default='')
+    weaf_base_url = models.URLField(
+        blank=True, default='',
+        validators=[validate_provider_url],
+    )
 
     # Defaults applied to every invoice
     default_currency = models.CharField(max_length=3, default='UGX')

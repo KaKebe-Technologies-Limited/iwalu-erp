@@ -20,7 +20,11 @@ VALID_PAYLOAD = {
 }
 
 
-@override_settings(TENANT_BASE_DOMAIN='localhost')
+@override_settings(
+    TENANT_BASE_DOMAIN='localhost',
+    TENANT_SELF_REGISTRATION_ENABLED=True,
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}},
+)
 class TenantRegistrationValidationTests(TestCase):
     """
     Fast validation tests. Schema creation is disabled via
@@ -122,7 +126,11 @@ class TenantRegistrationValidationTests(TestCase):
         self.assertEqual(response.json()['tenant']['schema_name'], 'lowercase')
 
 
-@override_settings(TENANT_BASE_DOMAIN='localhost')
+@override_settings(
+    TENANT_BASE_DOMAIN='localhost',
+    TENANT_SELF_REGISTRATION_ENABLED=True,
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}},
+)
 class TenantRegistrationIntegrationTests(TransactionTestCase):
     """
     End-to-end integration tests that actually create a PostgreSQL schema and
@@ -159,25 +167,32 @@ class TenantRegistrationIntegrationTests(TransactionTestCase):
         self.assertEqual(data['domain'], 'acmefuels.localhost')
         self.assertEqual(data['admin_user']['email'], 'owner@acmefuels.com')
         self.assertEqual(data['admin_user']['role'], 'admin')
-        self.assertIn('access', data)
-        self.assertIn('refresh', data)
+        # Admin is created INACTIVE; activation is out-of-band (email).
+        self.assertFalse(data['admin_user']['is_active'])
+        # JWT tokens are NO LONGER issued at registration — caller must
+        # complete email verification first.
+        self.assertNotIn('access', data)
+        self.assertNotIn('refresh', data)
+        self.assertIn('message', data)
 
         # Verify DB state
         self.assertTrue(Client.objects.filter(schema_name='acmefuels').exists())
         self.assertTrue(Domain.objects.filter(domain='acmefuels.localhost').exists())
         admin = User.objects.get(email='owner@acmefuels.com')
         self.assertEqual(admin.role, 'admin')
+        self.assertFalse(admin.is_active)
+        self.assertFalse(admin.is_staff)
+        self.assertFalse(admin.is_superuser)
         self.assertTrue(admin.check_password('securepass123'))
 
-    def test_returned_token_authenticates_new_admin(self):
-        """The access token returned from registration must work against /me/."""
-        response = self.client.post(self.url, self.valid_payload, format='json')
-        self.assertEqual(response.status_code, 201, response.content)
-        token = response.json()['access']
 
-        auth_client = APIClient()
-        auth_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-        me_response = auth_client.get('/api/auth/me/')
-        self.assertEqual(me_response.status_code, 200)
-        self.assertEqual(me_response.json()['email'], 'owner@acmefuels.com')
-        self.assertEqual(me_response.json()['role'], 'admin')
+@override_settings(TENANT_BASE_DOMAIN='localhost')
+class TenantRegistrationDisabledTests(TestCase):
+    """Default posture: endpoint returns 503 + 'contact sales' message."""
+
+    def test_endpoint_returns_503_when_flag_off(self):
+        # TENANT_SELF_REGISTRATION_ENABLED defaults to False.
+        c = APIClient()
+        response = c.post('/api/tenants/register/', VALID_PAYLOAD, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('disabled', response.json()['error'].lower())

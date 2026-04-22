@@ -206,7 +206,25 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Public webhook endpoint — generous enough for legit retries,
+        # tight enough to discourage spam/bruteforce of payment references.
+        'payment-callback': '120/min',
+        # Tenant signup — heavily rate-limited because each successful
+        # call provisions a Postgres schema (expensive + irreversible).
+        'tenant-registration': '3/hour',
+    },
 }
+
+# Self-service tenant registration. While disabled (default), the public
+# /api/tenants/register/ endpoint returns 503. Flip to True only after the
+# email-verification + async-provisioning workflow ships.
+TENANT_SELF_REGISTRATION_ENABLED = config(
+    'TENANT_SELF_REGISTRATION_ENABLED', default=False, cast=bool,
+)
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
