@@ -19,7 +19,9 @@
 | 6b | Notifications & Config | Done | Pending | Backend Complete |
 | 6c | Payments (Integrated) | Done | Pending | Backend Complete |
 | 6d | Mobile Money (Direct) | Done | Pending | Backend Complete |
-| 7 | Pump Hardware & Fleet | Not started | Not started | Future |
+| 7a | Tenant Onboarding | Done | Pending | Backend Complete |
+| 7b | SaaS Operations | Not started | Not started | Planned |
+| 7c | Pump Hardware & Fleet | Not started | Not started | Future |
 
 ---
 
@@ -81,7 +83,8 @@
 | notifications | 3 | 12 | 20 | `docs/modules/notifications.md` |
 | system_config | 3 | 11 | 18 | `docs/modules/system-config.md` |
 | payments | 2 | 5 | 3 | — |
-| tenants | 2 | 1 (register) | 14 | `docs/modules/tenant-registration.md` |
+| tenants | 3 | 2 (register, verify-email) | 19 | `docs/modules/tenant-registration.md` |
+| users (invitations) | +1 | 3 (invite, accept-invite, invitations) | +12 | `docs/modules/user-invitation.md` |
 | fiscalization | 2 | 6 | ~25 | `docs/modules/fiscalization.md` |
 
 ---
@@ -113,6 +116,23 @@
 ---
 
 ## Next Steps (Priority Order)
+
+### Phase 7a — Tenant Onboarding (Backend DONE, Frontend Pending)
+
+**Backend complete**:
+- `POST /api/tenants/register/` — creates tenant + sends verification email (admin stays inactive)
+- `GET /api/tenants/verify-email/?token=` — activates admin, returns JWT + redirect_url
+- `POST /api/users/invite/` — admin/manager sends staff invitation email
+- `POST /api/users/accept-invite/` — invitee sets name+password, account created, JWT returned
+- `GET /api/users/invitations/` — list pending/accepted invitations for current tenant
+- Email backend configurable via `EMAIL_BACKEND` env var (console by default in dev)
+
+**Frontend dev needs to build** (see `frontend/CLAUDE.md` Phase 7a section):
+1. `/auth/verify-pending` — "check your email" screen shown after registration
+2. `/auth/verify-email` — intercepts the verification link, calls backend, redirects to tenant subdomain
+3. `/accept-invite` — form for invitees to set name+password (runs on tenant subdomain)
+4. Invite staff modal + invitations list on Users/Employees page
+5. `lib/hooks/useInvitations.ts` — `useInviteUser` + `useInvitations` hooks
 
 ### Phase 5 — Frontend Integration (Finance & HR) [frontend dev]
 1. TypeScript interfaces for finance and HR models

@@ -1,25 +1,21 @@
 """
-Tenant self-service registration.
+Tenant self-service registration and email verification.
 
 Security posture:
-  - Disabled by default. Set TENANT_SELF_REGISTRATION_ENABLED=True in env to
-    expose the endpoint. While disabled, returns 503 + a "contact sales"
-    message — matches the current go-to-market reality and removes the
-    abuse vector entirely.
-  - Per-IP rate-limited (DRF AnonRateThrottle 'tenant-registration' scope).
-  - On success returns 201 with tenant info but NO JWT tokens. The caller
-    must complete email verification (out-of-band, currently manual via
-    Kakebe staff) before the admin user is activated and can log in.
-  - Errors are not surfaced raw to anonymous callers (would leak Postgres
-    internals). Detailed errors go to logs.
-
-When the proper email-verification + async-provisioning flow is built, the
-flag flips to True and the body of `register_tenant` shrinks to "create
-TenantRegistrationRequest, send verification email."
+  - Registration disabled by default (TENANT_SELF_REGISTRATION_ENABLED=True to enable).
+    While disabled returns 503 — removes the abuse vector entirely during private beta.
+  - Per-IP rate-limited (AnonRateThrottle 'tenant-registration' scope).
+  - On success returns 201 with pending status but NO JWT tokens. The admin user
+    is is_active=False until the email verification link is clicked.
+  - Verification token expires in 24 hours and is single-use.
+  - Raw exceptions are never surfaced to anonymous callers (leaks Postgres internals).
 """
 import logging
+from datetime import timedelta
 from django.conf import settings
+from django.core.mail import send_mail
 from django.db import transaction
+from django.utils import timezone
 from django_tenants.utils import schema_context, get_public_schema_name
 from rest_framework import status
 from rest_framework.decorators import (
@@ -28,12 +24,16 @@ from rest_framework.decorators import (
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import User
-from .models import Client, Domain
+from .models import Client, Domain, TenantEmailVerification
 from .serializers import TenantRegistrationSerializer
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_FROM = 'Nexus ERP <noreply@nexuserp.com>'
+_VERIFICATION_EXPIRY_HOURS = 24
 
 
 class TenantRegistrationThrottle(AnonRateThrottle):
@@ -41,10 +41,28 @@ class TenantRegistrationThrottle(AnonRateThrottle):
 
 
 def _scheme_for(request) -> str:
-    """Force https outside DEBUG, regardless of how the request was framed."""
     if not settings.DEBUG:
         return 'https'
     return 'https' if request.is_secure() else 'http'
+
+
+def _send_verification_email(admin_email, token, tenant_schema, scheme, base_domain):
+    """Send the email-verification link to the new admin."""
+    verify_url = f"{scheme}://{base_domain}/api/tenants/verify-email/?token={token}"
+    send_mail(
+        subject='Verify your Nexus ERP account',
+        message=(
+            f"Welcome to Nexus ERP!\n\n"
+            f"Your business subdomain will be: {tenant_schema}.{base_domain}\n\n"
+            f"Click the link below to verify your email and activate your account "
+            f"(expires in {_VERIFICATION_EXPIRY_HOURS} hours):\n\n"
+            f"{verify_url}\n\n"
+            f"If you did not create a Nexus ERP account, you can ignore this email."
+        ),
+        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', _DEFAULT_FROM),
+        recipient_list=[admin_email],
+        fail_silently=False,
+    )
 
 
 @api_view(['POST'])
@@ -55,9 +73,8 @@ def register_tenant(request):
     """
     Public self-service tenant registration.
 
-    Creates a Client + Domain + first admin user atomically. The created
-    admin user is `is_active=False`; activation requires out-of-band email
-    verification (currently a manual step performed by Kakebe staff).
+    Creates a Client + Domain + first admin user atomically. The admin user is
+    is_active=False until the email verification link is clicked.
     """
     if not getattr(settings, 'TENANT_SELF_REGISTRATION_ENABLED', False):
         return Response(
@@ -74,10 +91,9 @@ def register_tenant(request):
 
     base_domain = getattr(settings, 'TENANT_BASE_DOMAIN', 'localhost')
     full_domain = f"{data['schema_name']}.{base_domain}"
+    scheme = _scheme_for(request)
 
     try:
-        # Tenant + Domain + User creation must run against the public schema,
-        # regardless of which subdomain the request came in on.
         with schema_context(get_public_schema_name()):
             with transaction.atomic():
                 client = Client.objects.create(
@@ -89,10 +105,6 @@ def register_tenant(request):
                     tenant=client,
                     is_primary=True,
                 )
-                # First admin is created INACTIVE. Out-of-band email
-                # verification (currently manual) flips is_active=True.
-                # Explicitly clamp staff/superuser flags — defense in depth
-                # against future model defaults shifting.
                 admin = User.objects.create(
                     email=data['admin_email'],
                     username=data['admin_username'],
@@ -106,16 +118,30 @@ def register_tenant(request):
                 )
                 admin.set_password(data['admin_password'])
                 admin.save()
+
+                verification = TenantEmailVerification.objects.create(
+                    tenant=client,
+                    email=data['admin_email'],
+                    expires_at=timezone.now() + timedelta(hours=_VERIFICATION_EXPIRY_HOURS),
+                )
     except Exception:
         logger.exception('Tenant registration failed for schema %s', data['schema_name'])
-        # Do NOT echo the raw exception to anonymous callers — it leaks
-        # Postgres schema/SQL details.
         return Response(
             {'error': 'Registration could not be completed. Please try again later.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    scheme = _scheme_for(request)
+    try:
+        _send_verification_email(
+            data['admin_email'], verification.token,
+            data['schema_name'], scheme, base_domain,
+        )
+    except Exception:
+        logger.exception(
+            'Verification email failed for %s — tenant created, email not sent',
+            data['admin_email'],
+        )
+
     return Response(
         {
             'tenant': {
@@ -125,7 +151,6 @@ def register_tenant(request):
                 'created_on': client.created_on,
             },
             'domain': full_domain,
-            'login_url': f'{scheme}://{full_domain}/api/auth/login/',
             'admin_user': {
                 'id': admin.pk,
                 'email': admin.email,
@@ -134,9 +159,83 @@ def register_tenant(request):
                 'is_active': admin.is_active,
             },
             'message': (
-                'Registration received. Your account is pending verification. '
-                'You will receive an email once it is activated.'
+                f'Registration received. A verification email has been sent to '
+                f'{data["admin_email"]}. Click the link to activate your account.'
             ),
         },
         status=status.HTTP_201_CREATED,
     )
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def verify_tenant_email(request):
+    """
+    Consume an email-verification token, activate the admin user, and return JWT tokens.
+
+    GET /api/tenants/verify-email/?token=<uuid>
+
+    The frontend should store the tokens and redirect_url then navigate to
+    the tenant's subdomain dashboard.
+    """
+    token_str = request.query_params.get('token', '')
+    if not token_str:
+        return Response({'error': 'Missing token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        verification = TenantEmailVerification.objects.select_related('tenant').get(token=token_str)
+    except (TenantEmailVerification.DoesNotExist, Exception):
+        return Response(
+            {'error': 'Invalid or expired verification link.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if verification.is_used:
+        return Response(
+            {'error': 'This verification link has already been used.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if verification.is_expired:
+        return Response(
+            {'error': 'This verification link has expired. Please register again.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        with schema_context(get_public_schema_name()):
+            with transaction.atomic():
+                admin = User.objects.get(email=verification.email, is_active=False)
+                admin.is_active = True
+                admin.save(update_fields=['is_active'])
+
+                verification.used_at = timezone.now()
+                verification.save(update_fields=['used_at'])
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Account not found or already active.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception:
+        logger.exception('Email verification failed for token %s', token_str)
+        return Response(
+            {'error': 'Verification could not be completed. Please try again.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    refresh = RefreshToken.for_user(admin)
+    base_domain = getattr(settings, 'TENANT_BASE_DOMAIN', 'localhost')
+    scheme = _scheme_for(request)
+    redirect_url = f"{scheme}://{verification.tenant.schema_name}.{base_domain}/dashboard"
+
+    return Response({
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'redirect_url': redirect_url,
+        'tenant': {
+            'schema_name': verification.tenant.schema_name,
+            'name': verification.tenant.name,
+        },
+        'message': 'Email verified. Your account is now active.',
+    })

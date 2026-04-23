@@ -1,9 +1,11 @@
+from datetime import timedelta
 from unittest.mock import patch
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
 
-from .models import Client, Domain
+from .models import Client, Domain, TenantEmailVerification
 
 User = get_user_model()
 
@@ -186,13 +188,92 @@ class TenantRegistrationIntegrationTests(TransactionTestCase):
         self.assertTrue(admin.check_password('securepass123'))
 
 
-@override_settings(TENANT_BASE_DOMAIN='localhost')
+@override_settings(
+    TENANT_BASE_DOMAIN='localhost',
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'}},
+)
 class TenantRegistrationDisabledTests(TestCase):
     """Default posture: endpoint returns 503 + 'contact sales' message."""
 
     def test_endpoint_returns_503_when_flag_off(self):
-        # TENANT_SELF_REGISTRATION_ENABLED defaults to False.
         c = APIClient()
         response = c.post('/api/tenants/register/', VALID_PAYLOAD, format='json')
         self.assertEqual(response.status_code, 503)
         self.assertIn('disabled', response.json()['error'].lower())
+
+
+@override_settings(TENANT_BASE_DOMAIN='localhost')
+class EmailVerificationTests(TestCase):
+    """
+    Tests for GET /api/tenants/verify-email/.
+    Uses a pre-created Client + User + TenantEmailVerification to avoid
+    the slow schema-creation path.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._orig_auto_create = Client.auto_create_schema
+        Client.auto_create_schema = False
+
+    @classmethod
+    def tearDownClass(cls):
+        Client.auto_create_schema = cls._orig_auto_create
+        super().tearDownClass()
+
+    def setUp(self):
+        self.api = APIClient()
+        self.client_obj = Client.objects.create(schema_name='verifyco', name='Verify Co')
+        self.admin = User.objects.create(
+            email='admin@verifyco.com',
+            username='verifyadmin',
+            first_name='Admin',
+            last_name='User',
+            role='admin',
+            is_active=False,
+        )
+        self.admin.set_password('password123')
+        self.admin.save()
+        self.verification = TenantEmailVerification.objects.create(
+            tenant=self.client_obj,
+            email='admin@verifyco.com',
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+
+    def _verify_url(self, token):
+        return f'/api/tenants/verify-email/?token={token}'
+
+    def test_valid_token_activates_user_and_returns_jwt(self):
+        response = self.api.get(self._verify_url(self.verification.token))
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertIn('access', data)
+        self.assertIn('refresh', data)
+        self.assertIn('redirect_url', data)
+        self.assertIn('verifyco', data['redirect_url'])
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+        self.verification.refresh_from_db()
+        self.assertIsNotNone(self.verification.used_at)
+
+    def test_missing_token_returns_400(self):
+        response = self.api.get('/api/tenants/verify-email/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_token_returns_400(self):
+        response = self.api.get(self._verify_url('00000000-0000-0000-0000-000000000000'))
+        self.assertEqual(response.status_code, 400)
+
+    def test_expired_token_returns_400(self):
+        self.verification.expires_at = timezone.now() - timedelta(hours=1)
+        self.verification.save()
+        response = self.api.get(self._verify_url(self.verification.token))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('expired', response.json()['error'].lower())
+
+    def test_already_used_token_returns_400(self):
+        self.verification.used_at = timezone.now()
+        self.verification.save()
+        response = self.api.get(self._verify_url(self.verification.token))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('already been used', response.json()['error'].lower())
