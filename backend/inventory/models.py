@@ -37,20 +37,26 @@ class OutletStock(models.Model):
 class PurchaseOrder(models.Model):
     STATUS_CHOICES = (
         ('draft', 'Draft'),
+        ('pending_approval', 'Pending Approval'),
         ('submitted', 'Submitted'),
         ('partial', 'Partially Received'),
         ('received', 'Received'),
         ('cancelled', 'Cancelled'),
+        ('rejected', 'Rejected'),
     )
 
     po_number = models.CharField(max_length=50, unique=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='purchase_orders')
     outlet = models.ForeignKey(Outlet, on_delete=models.PROTECT, related_name='purchase_orders')
     ordered_by = models.IntegerField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     expected_date = models.DateField(null=True, blank=True)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     notes = models.TextField(blank=True)
+    approval_request = models.ForeignKey(
+        'approvals.ApprovalRequest', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='purchase_orders'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Account, FiscalPeriod, JournalEntry, JournalEntryLine
+from .models import Account, FiscalPeriod, JournalEntry, JournalEntryLine, CashRequisition
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -84,3 +84,47 @@ class JournalEntryCreateSerializer(serializers.Serializer):
     date = serializers.DateField()
     description = serializers.CharField()
     lines = JournalEntryLineCreateSerializer(many=True)
+
+
+class CashRequisitionSerializer(serializers.ModelSerializer):
+    requested_by_name = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+    paid_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CashRequisition
+        fields = '__all__'
+        read_only_fields = [
+            'requisition_number', 'requested_by_id', 'requested_at',
+            'status', 'approval_request', 'approved_by_id', 'approved_at',
+            'paid_by_id', 'paid_at', 'settled_amount', 'settled_at',
+            'created_at', 'updated_at'
+        ]
+
+    def get_requested_by_name(self, obj):
+        from users.models import User
+        try:
+            user = User.objects.get(id=obj.requested_by_id)
+            return user.get_full_name() or user.username
+        except User.DoesNotExist:
+            return f"User #{obj.requested_by_id}"
+
+    def get_approved_by_name(self, obj):
+        if not obj.approved_by_id:
+            return None
+        from users.models import User
+        try:
+            user = User.objects.get(id=obj.approved_by_id)
+            return user.get_full_name() or user.username
+        except User.DoesNotExist:
+            return f"User #{obj.approved_by_id}"
+
+    def get_paid_by_name(self, obj):
+        if not obj.paid_by_id:
+            return None
+        from users.models import User
+        try:
+            user = User.objects.get(id=obj.paid_by_id)
+            return user.get_full_name() or user.username
+        except User.DoesNotExist:
+            return f"User #{obj.paid_by_id}"

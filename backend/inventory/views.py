@@ -26,6 +26,9 @@ from .services import (
 )
 
 
+from approvals.models import ApprovalPolicy, ApprovalRequest
+from notifications.services import notify_approval_required
+
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
@@ -173,6 +176,53 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 {'error': f'Cannot submit a {po.status} purchase order.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        
+        # Find matching approval policy
+        policy = ApprovalPolicy.objects.filter(
+            resource_type=ApprovalPolicy.ResourceType.PURCHASE_ORDER,
+            is_active=True
+        ).order_by('min_amount').filter(
+            models.Q(min_amount__lte=po.total_cost) | models.Q(min_amount__isnull=True)
+        ).last()
+
+        if policy and policy.should_auto_approve(po.total_cost):
+            po.status = 'submitted'
+            po.save(update_fields=['status', 'updated_at'])
+            return Response({'status': 'auto_approved', 'po': PurchaseOrderSerializer(po).data})
+
+        if policy:
+            # Create approval request
+            approval_request = ApprovalRequest.objects.create(
+                policy=policy,
+                resource_type=ApprovalPolicy.ResourceType.PURCHASE_ORDER,
+                resource_id=po.id,
+                requested_by_id=request.user.id,
+                amount=po.total_cost,
+                approval_chain_state=policy.approval_levels,
+                notes=po.notes
+            )
+            
+            po.status = 'pending_approval'
+            po.approval_request = approval_request
+            po.save(update_fields=['status', 'approval_request', 'updated_at'])
+            
+            # Notify first level approvers
+            approver_ids = approval_request.get_approvers_at_level(1)
+            notify_approval_required(
+                transaction_type="Purchase Order",
+                amount=po.total_cost,
+                requester_name=request.user.get_full_name() or request.user.username,
+                reference_id=approval_request.id,
+                recipient_ids=approver_ids
+            )
+            
+            return Response({
+                'status': 'pending_approval', 
+                'approval_id': approval_request.id,
+                'po': PurchaseOrderSerializer(po).data
+            })
+
+        # No policy found; default to auto-approve
         po.status = 'submitted'
         po.save(update_fields=['status', 'updated_at'])
         return Response(PurchaseOrderSerializer(po).data)

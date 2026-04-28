@@ -122,3 +122,71 @@ class JournalEntryLine(models.Model):
         if self.debit > 0:
             return f"DR {self.account.code} {self.debit}"
         return f"CR {self.account.code} {self.credit}"
+
+
+class CashRequisition(models.Model):
+    """
+    Employee cash request (advance, imprests, operational petty cash).
+    Requires manager approval, optionally accountant approval for amounts > threshold.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        PAID = 'paid', 'Paid'
+        SETTLED = 'settled', 'Settled (employee returned balance)'
+
+    class RequisitionType(models.TextChoices):
+        PETTY_CASH = 'petty_cash', 'Petty Cash'
+        EMPLOYEE_ADVANCE = 'employee_advance', 'Employee Advance'
+        OPERATIONAL = 'operational', 'Operational Expense'
+
+    requisition_number = models.CharField(
+        max_length=50, unique=True,
+        help_text='Auto-generated: REQ-YYYY-##### '
+    )
+    requisition_type = models.CharField(max_length=30, choices=RequisitionType.choices)
+    
+    requested_by_id = models.IntegerField(help_text='Employee ID requesting cash')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=3, default='UGX')
+    
+    purpose = models.TextField(help_text='Why cash is needed')
+    
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    
+    approval_request = models.ForeignKey(
+        'approvals.ApprovalRequest', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='cash_requisitions'
+    )
+
+    approved_by_id = models.IntegerField(
+        null=True, blank=True,
+        help_text='Final approver (manager or accountant)'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    
+    paid_by_id = models.IntegerField(null=True, blank=True, help_text='Cashier who paid out')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    
+    settled_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Amount returned (if not fully expended)'
+    )
+    settled_at = models.DateTimeField(null=True, blank=True)
+    
+    notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status', 'requested_by_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.requisition_number} - {self.amount} {self.currency} ({self.status})"

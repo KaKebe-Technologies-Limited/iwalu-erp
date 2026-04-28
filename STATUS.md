@@ -21,7 +21,8 @@
 | 6d | Mobile Money (Direct) | Done | Pending | Backend Complete |
 | 7a | Tenant Onboarding | Done | Pending | Backend Complete |
 | 7b | SaaS Operations | Not started | Not started | Planned |
-| 7c | Pump Hardware & Fleet | Not started | Not started | Future |
+| 7c | Approval Workflows | Done | Pending | Backend Complete |
+| 7d | Pump Hardware & Fleet | Not started | Not started | Future |
 
 ---
 
@@ -86,6 +87,7 @@
 | tenants | 3 | 2 (register, verify-email) | 19 | `docs/modules/tenant-registration.md` |
 | users (invitations) | +1 | 3 (invite, accept-invite, invitations) | +12 | `docs/modules/user-invitation.md` |
 | fiscalization | 2 | 6 | ~25 | `docs/modules/fiscalization.md` |
+| approvals | 3 | 8 | 6+ | `docs/modules/approvals.md` |
 
 ---
 

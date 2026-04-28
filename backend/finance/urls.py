@@ -6,6 +6,7 @@ router = DefaultRouter()
 router.register(r'accounts', views.AccountViewSet)
 router.register(r'fiscal-periods', views.FiscalPeriodViewSet)
 router.register(r'journal-entries', views.JournalEntryViewSet)
+router.register(r'cash-requisitions', views.CashRequisitionViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

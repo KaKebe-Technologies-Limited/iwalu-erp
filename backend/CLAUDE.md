@@ -23,6 +23,7 @@ backend/
 ├── hr/              # Employees, departments, leave, attendance, payroll
 ├── notifications/   # In-app notifications, preferences, templates
 ├── system_config/   # Tenant settings, approval thresholds, audit settings
+├── approvals/       # Multi-level approval workflows for critical transactions
 ├── manage.py
 ├── requirements.txt
 └── Dockerfile

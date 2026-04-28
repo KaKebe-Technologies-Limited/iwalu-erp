@@ -99,11 +99,11 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'employee', 'employee_number', 'leave_type',
             'leave_type_name', 'start_date', 'end_date', 'days_requested',
-            'reason', 'status', 'approved_by', 'approved_at',
+            'reason', 'status', 'approval_request', 'approved_by', 'approved_at',
             'rejection_reason', 'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'status', 'approved_by', 'approved_at',
+            'status', 'approval_request', 'approved_by', 'approved_at',
             'rejection_reason', 'created_at', 'updated_at',
         ]
 
@@ -160,12 +160,12 @@ class PayrollPeriodSerializer(serializers.ModelSerializer):
         model = PayrollPeriod
         fields = [
             'id', 'name', 'start_date', 'end_date', 'status',
-            'processed_by', 'approved_by', 'journal_entry',
+            'processed_by', 'approved_by', 'approval_request', 'journal_entry',
             'total_gross', 'total_deductions', 'total_net',
             'pay_slips_count', 'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'status', 'processed_by', 'approved_by', 'journal_entry',
+            'status', 'processed_by', 'approved_by', 'approval_request', 'journal_entry',
             'total_gross', 'total_deductions', 'total_net',
             'created_at', 'updated_at',
         ]
