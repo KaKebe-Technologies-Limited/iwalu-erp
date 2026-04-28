@@ -226,6 +226,11 @@ TENANT_SELF_REGISTRATION_ENABLED = config(
     'TENANT_SELF_REGISTRATION_ENABLED', default=False, cast=bool,
 )
 
+# Subscription settings
+TRIAL_DAYS = config('TRIAL_DAYS', default=14, cast=int)
+INVOICE_DUE_DAYS = config('INVOICE_DUE_DAYS', default=14, cast=int)
+PAYMENT_GRACE_PERIOD_DAYS = config('PAYMENT_GRACE_PERIOD_DAYS', default=7, cast=int)
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
