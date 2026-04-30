@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 from .serializers import UserSerializer, UserCreateSerializer, RegisterSerializer
 from .permissions import IsAdmin, IsAdminOrManager
+from .role_permissions import get_permissions_for_role
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -49,6 +50,17 @@ class UserViewSet(viewsets.ModelViewSet):
 def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user_permissions(request):
+    """
+    Return the dashboard sections and fine-grained actions the current
+    user's role is allowed to access. The frontend uses this to build
+    the sidebar and feature gates dynamically.
+    """
+    return Response(get_permissions_for_role(request.user.role))
 
 
 @api_view(['POST'])
