@@ -62,8 +62,8 @@ class Command(BaseCommand):
                         line_items=[{
                             "description": f"{sub.plan.name} Plan - {sub.get_billing_cycle_display()}",
                             "quantity": 1,
-                            "unit_price": float(amount),
-                            "total": float(amount)
+                            "unit_price": str(amount),
+                            "total": str(amount)
                         }]
                     )
                     

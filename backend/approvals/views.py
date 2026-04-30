@@ -34,16 +34,15 @@ class ApprovalRequestViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # User can see requests they requested OR ones where they are a potential approver
-        # This is a bit complex for a simple filter, so we'll filter in Python or use Q objects
         from django.db.models import Q
-        
-        # Simplified: for now, filter by requested_by or if their role is in any pending level
-        # A better way is to filter by role if status is pending
-        return ApprovalRequest.objects.filter(
-            Q(requested_by_id=user.id) | 
-            Q(status='pending', approval_chain_state__contains=[{'role': user.role}])
+
+        # Users can see requests they created OR all pending requests (role check enforced in approve action)
+        queryset = ApprovalRequest.objects.filter(
+            Q(requested_by_id=user.id) | Q(status='pending')
         ).distinct()
+
+        # For safety, approvers must pass role validation in the approve() action itself
+        return queryset
 
     @action(detail=True, methods=['post'])
     @transaction.atomic

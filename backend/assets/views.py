@@ -48,14 +48,46 @@ class AssetViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        from datetime import datetime as dt
+
         asset = self.get_object()
         assigned_to_id = request.data.get('assigned_to_id')
         assigned_to_type = request.data.get('assigned_to_type', 'employee')
         notes = request.data.get('notes', '')
-        assigned_date = request.data.get('assigned_date', date.today())
+        assigned_date_input = request.data.get('assigned_date', None)
 
         if not assigned_to_id:
             return Response({"error": "assigned_to_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate and parse assigned_date
+        if assigned_date_input:
+            try:
+                if isinstance(assigned_date_input, date):
+                    assigned_date = assigned_date_input
+                else:
+                    assigned_date = dt.strptime(assigned_date_input, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "assigned_date must be in YYYY-MM-DD format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            assigned_date = date.today()
+
+        # Validate date is not in future
+        if assigned_date > date.today():
+            return Response(
+                {"error": "assigned_date cannot be in the future"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate date is not before asset acquisition
+        if assigned_date < asset.acquisition_date:
+            return Response(
+                {"error": f"assigned_date cannot be before asset acquisition date ({asset.acquisition_date})"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Mark current assignment as not current
         AssetAssignment.objects.filter(asset=asset, is_current=True).update(
