@@ -116,6 +116,7 @@ class LeaveBalance(models.Model):
 class LeaveRequest(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
+        PENDING_APPROVAL = 'pending_approval', 'Pending Approval'
         APPROVED = 'approved', 'Approved'
         REJECTED = 'rejected', 'Rejected'
         CANCELLED = 'cancelled', 'Cancelled'
@@ -131,7 +132,11 @@ class LeaveRequest(models.Model):
     days_requested = models.DecimalField(max_digits=5, decimal_places=1)
     reason = models.TextField(blank=True)
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.PENDING,
+        max_length=20, choices=Status.choices, default=Status.PENDING,
+    )
+    approval_request = models.ForeignKey(
+        'approvals.ApprovalRequest', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='leave_requests'
     )
     approved_by = models.IntegerField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
@@ -179,18 +184,24 @@ class Attendance(models.Model):
 class PayrollPeriod(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
+        PENDING_APPROVAL = 'pending_approval', 'Pending Approval'
         PROCESSING = 'processing', 'Processing'
         APPROVED = 'approved', 'Approved'
         PAID = 'paid', 'Paid'
+        REJECTED = 'rejected', 'Rejected'
 
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(
-        max_length=15, choices=Status.choices, default=Status.DRAFT,
+        max_length=20, choices=Status.choices, default=Status.DRAFT,
     )
     processed_by = models.IntegerField(null=True, blank=True)
     approved_by = models.IntegerField(null=True, blank=True)
+    approval_request = models.ForeignKey(
+        'approvals.ApprovalRequest', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='payroll_periods'
+    )
     journal_entry = models.ForeignKey(
         'finance.JournalEntry', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='payroll_periods',

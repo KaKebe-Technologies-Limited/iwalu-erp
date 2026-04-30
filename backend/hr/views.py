@@ -21,6 +21,9 @@ from .serializers import (
 from . import services
 
 
+from approvals.models import ApprovalPolicy, ApprovalRequest
+from notifications.services import notify_approval_required
+
 def _get_employee_or_none(user):
     """Get the Employee record for a user, or None."""
     try:
@@ -196,6 +199,47 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             days_requested=data['days_requested'],
             reason=data.get('reason', ''),
         )
+        
+        # Check for approval policy
+        policy = ApprovalPolicy.objects.filter(
+            resource_type=ApprovalPolicy.ResourceType.LEAVE_REQUEST,
+            is_active=True
+        ).first()
+        
+        if policy:
+            approval_request = ApprovalRequest.objects.create(
+                policy=policy,
+                resource_type=ApprovalPolicy.ResourceType.LEAVE_REQUEST,
+                resource_id=leave_request.id,
+                requested_by_id=request.user.id,
+                approval_chain_state=policy.approval_levels,
+                notes=leave_request.reason
+            )
+            
+            leave_request.status = 'pending_approval'
+            leave_request.approval_request = approval_request
+            leave_request.save(update_fields=['status', 'approval_request', 'updated_at'])
+            
+            # Notify first level approvers
+            approver_ids = approval_request.get_approvers_at_level(1)
+            notify_approval_required(
+                transaction_type="Leave Request",
+                amount=f"{leave_request.days_requested} days",
+                requester_name=request.user.get_full_name() or request.user.username,
+                reference_id=approval_request.id,
+                recipient_ids=approver_ids
+            )
+            
+            return Response(
+                LeaveRequestSerializer(leave_request).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        # No policy, default behavior (maybe auto-approve or stay pending)
+        # Plan says: No policy; auto-approve
+        leave_request.status = 'approved'
+        leave_request.save(update_fields=['status', 'updated_at'])
+        
         return Response(
             LeaveRequestSerializer(leave_request).data,
             status=status.HTTP_201_CREATED,
@@ -330,6 +374,47 @@ class PayrollPeriodViewSet(viewsets.ModelViewSet):
     def process(self, request, pk=None):
         period = self.get_object()
         services.process_payroll(period, request.user.pk)
+        period.refresh_from_db()
+        
+        total_payroll = period.total_gross
+        
+        policy = ApprovalPolicy.objects.filter(
+            resource_type=ApprovalPolicy.ResourceType.PAYROLL_RUN,
+            is_active=True
+        ).first()
+        
+        if policy and policy.should_auto_approve(total_payroll):
+            # Already set to 'processing' by service
+            return Response(PayrollPeriodDetailSerializer(period).data)
+
+        if policy:
+            approval = ApprovalRequest.objects.create(
+                policy=policy,
+                resource_type=ApprovalPolicy.ResourceType.PAYROLL_RUN,
+                resource_id=period.id,
+                requested_by_id=request.user.id,
+                amount=total_payroll,
+                approval_chain_state=policy.approval_levels,
+            )
+            period.status = 'pending_approval'
+            period.approval_request = approval
+            period.save(update_fields=['status', 'approval_request', 'updated_at'])
+            
+            # Notify
+            approver_ids = approval.get_approvers_at_level(1)
+            notify_approval_required(
+                transaction_type="Payroll Run",
+                amount=total_payroll,
+                requester_name=request.user.get_full_name() or request.user.username,
+                reference_id=approval.id,
+                recipient_ids=approver_ids
+            )
+            return Response({
+                'status': 'pending_approval', 
+                'approval_id': approval.id,
+                'period': PayrollPeriodDetailSerializer(period).data
+            })
+
         return Response(PayrollPeriodDetailSerializer(period).data)
 
     @action(detail=True, methods=['post'])

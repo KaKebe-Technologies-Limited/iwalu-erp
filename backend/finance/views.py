@@ -7,13 +7,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from users.permissions import IsAdminOrManager, IsAccountantOrAbove
-from .models import Account, FiscalPeriod, JournalEntry
+from .models import Account, FiscalPeriod, JournalEntry, CashRequisition
 from .serializers import (
     AccountSerializer, AccountCreateSerializer,
     FiscalPeriodSerializer,
     JournalEntrySerializer, JournalEntryCreateSerializer,
+    CashRequisitionSerializer,
 )
 from . import services
+from approvals.models import ApprovalPolicy, ApprovalRequest
+from notifications.services import notify_approval_required
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -188,6 +191,85 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
             'voided_entry': JournalEntrySerializer(entry).data,
             'reversal_entry': JournalEntrySerializer(reversal).data,
         })
+
+
+class CashRequisitionViewSet(viewsets.ModelViewSet):
+    queryset = CashRequisition.objects.all()
+    serializer_class = CashRequisitionSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'requisition_type']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role not in ('admin', 'manager', 'accountant'):
+            qs = qs.filter(requested_by_id=self.request.user.pk)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        from django.db import transaction
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        with transaction.atomic():
+            requisition = serializer.save(
+                requested_by_id=request.user.pk,
+                requisition_number=services.generate_requisition_number(),
+                status='pending'
+            )
+            
+            # Create approval
+            policy = ApprovalPolicy.objects.filter(
+                resource_type=ApprovalPolicy.ResourceType.CASH_REQUISITION,
+                is_active=True
+            ).order_by('min_amount').filter(
+                models.Q(min_amount__lte=requisition.amount) | models.Q(min_amount__isnull=True)
+            ).last()
+            
+            if policy:
+                approval = ApprovalRequest.objects.create(
+                    policy=policy,
+                    resource_type=ApprovalPolicy.ResourceType.CASH_REQUISITION,
+                    resource_id=requisition.id,
+                    requested_by_id=request.user.pk,
+                    amount=requisition.amount,
+                    approval_chain_state=policy.approval_levels,
+                    notes=requisition.purpose
+                )
+                requisition.approval_request = approval
+                requisition.save(update_fields=['approval_request'])
+                
+                # Notify
+                approver_ids = approval.get_approvers_at_level(1)
+                notify_approval_required(
+                    transaction_type="Cash Requisition",
+                    amount=requisition.amount,
+                    requester_name=request.user.get_full_name() or request.user.username,
+                    reference_id=approval.id,
+                    recipient_ids=approver_ids
+                )
+            else:
+                # No policy, auto-approve
+                requisition.status = 'approved'
+                requisition.save(update_fields=['status'])
+                
+        return Response(
+            CashRequisitionSerializer(requisition).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAccountantOrAbove])
+    def pay(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != 'approved':
+            return Response(
+                {'error': f'Cannot pay a {requisition.status} requisition.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        requisition.status = 'paid'
+        requisition.paid_by_id = request.user.pk
+        requisition.paid_at = timezone.now()
+        requisition.save()
+        return Response(CashRequisitionSerializer(requisition).data)
 
 
 # --- Financial report views ---

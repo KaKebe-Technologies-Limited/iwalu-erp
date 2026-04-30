@@ -2,7 +2,9 @@ import re
 from django.conf import settings
 from rest_framework import serializers
 from users.models import User
-from .models import Client, Domain
+from .models import (
+    Client, Domain, SubscriptionPlan, TenantSubscription, SubscriptionInvoice
+)
 
 
 # Reserved subdomain names that cannot be used as tenants
@@ -40,6 +42,18 @@ class TenantRegistrationSerializer(serializers.Serializer):
     admin_phone = serializers.CharField(
         max_length=20, required=False, allow_blank=True, default='',
     )
+
+    # Subscription info
+    plan_id = serializers.IntegerField(help_text='ID of the chosen subscription plan')
+    billing_cycle = serializers.ChoiceField(
+        choices=TenantSubscription.BillingCycle.choices,
+        default=TenantSubscription.BillingCycle.MONTHLY
+    )
+
+    def validate_plan_id(self, value):
+        if not SubscriptionPlan.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError('Invalid or inactive plan selected.')
+        return value
 
     def validate_schema_name(self, value):
         value = value.lower().strip()
@@ -92,3 +106,71 @@ class TenantRegistrationResponseSerializer(serializers.Serializer):
     admin_user = serializers.DictField()
     access = serializers.CharField()
     refresh = serializers.CharField()
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    monthly_equivalent = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            'id', 'slug', 'name', 'price_monthly', 'price_annual',
+            'max_users', 'max_outlets', 'features', 'description',
+            'is_active', 'display_order', 'monthly_equivalent'
+        ]
+
+
+class TenantSubscriptionSerializer(serializers.ModelSerializer):
+    plan = SubscriptionPlanSerializer(read_only=True)
+    tenant = serializers.SlugRelatedField(slug_field='schema_name', read_only=True)
+    trial_days_remaining = serializers.SerializerMethodField()
+    is_trial = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TenantSubscription
+        fields = [
+            'id', 'tenant', 'plan', 'billing_cycle', 'status',
+            'is_trial', 'trial_days_remaining', 'current_period_start',
+            'current_period_end', 'next_billing_date', 'failed_payment_count',
+            'suspended_at', 'suspension_reason'
+        ]
+
+    def get_is_trial(self, obj):
+        return obj.status == TenantSubscription.Status.TRIAL
+
+    def get_trial_days_remaining(self, obj):
+        if not obj.trial_started_at:
+            return 0
+        from django.utils import timezone
+        from datetime import timedelta
+        expiry = obj.trial_started_at + timedelta(days=obj.trial_days)
+        remaining = (expiry - timezone.now()).days
+        return max(0, remaining)
+
+
+class SubscriptionInvoiceSerializer(serializers.ModelSerializer):
+    is_overdue = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = SubscriptionInvoice
+        fields = [
+            'id', 'invoice_number', 'period_start', 'period_end',
+            'amount', 'status', 'issued_at', 'due_date', 'paid_at',
+            'is_overdue', 'notes', 'line_items'
+        ]
+
+
+class ChangePlanSerializer(serializers.Serializer):
+    plan_id = serializers.IntegerField()
+    billing_cycle = serializers.ChoiceField(choices=TenantSubscription.BillingCycle.choices)
+
+    def validate_plan_id(self, value):
+        if not SubscriptionPlan.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError("Plan not found or inactive.")
+        return value
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()

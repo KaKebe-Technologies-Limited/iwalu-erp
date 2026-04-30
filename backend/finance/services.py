@@ -25,6 +25,25 @@ def generate_entry_number():
     return f"{prefix}{next_num:04d}"
 
 
+def generate_requisition_number():
+    """Generate REQ-YYYY-NNNNN inside an atomic block."""
+    from .models import CashRequisition
+    year = timezone.now().year
+    prefix = f"REQ-{year}-"
+    last = (
+        CashRequisition.objects
+        .select_for_update()
+        .filter(requisition_number__startswith=prefix)
+        .order_by('-requisition_number')
+        .first()
+    )
+    if last:
+        next_num = int(last.requisition_number.split('-')[-1]) + 1
+    else:
+        next_num = 1
+    return f"{prefix}{next_num:05d}"
+
+
 def get_fiscal_period(date):
     """Find the fiscal period covering the given date, or auto-create a monthly one."""
     period = FiscalPeriod.objects.filter(

@@ -180,17 +180,36 @@ def notify_approval_required(transaction_type, amount, requester_name,
         )
 
 
-# ---------- Delivery helpers (stubs for Phase 6c) ----------
+# ---------- Delivery helpers ----------
 
 def _queue_email(notification):
-    """Queue email delivery. Stub for Phase 6c integration."""
-    logger.info('Email queued: [%s] %s -> user #%s',
-                notification.notification_type, notification.title,
-                notification.recipient_id)
+    """Send notification email synchronously via Django's email backend."""
+    from django.conf import settings
+    from django.core.mail import send_mail
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=notification.recipient_id)
+    except User.DoesNotExist:
+        logger.warning('Email skipped — user #%s not found', notification.recipient_id)
+        return
+
+    try:
+        send_mail(
+            subject=notification.title,
+            message=notification.body,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@nexuserp.com'),
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        logger.info('Email sent: [%s] -> %s', notification.notification_type, user.email)
+    except Exception:
+        logger.exception('Email delivery failed for notification #%s', notification.pk)
 
 
 def _queue_sms(notification):
-    """Queue SMS delivery. Stub for Phase 6c integration."""
-    logger.info('SMS queued: [%s] %s -> user #%s',
+    """SMS delivery — stub until an SMS provider is integrated."""
+    logger.info('SMS queued (not yet delivered): [%s] %s -> user #%s',
                 notification.notification_type, notification.title,
                 notification.recipient_id)

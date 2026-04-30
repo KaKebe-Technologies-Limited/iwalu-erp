@@ -1,8 +1,11 @@
+from datetime import timedelta
+from unittest.mock import patch
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import User
+from .models import User, UserInvitation
 
 
 class RegistrationTest(APITestCase):
@@ -277,3 +280,145 @@ class CurrentUserPermissionsTest(APITestCase):
         self.assertIn('pos', data['sections'])
         self.assertNotIn('products', data['sections'])
         self.assertNotIn('accounting', data['sections'])
+
+
+class UserInvitationTests(APITestCase):
+    """
+    Tests for the invite / accept-invite flow.
+    Uses the public schema directly (no tenant schema creation needed).
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='admin@acme.com', username='admin_acme',
+            password='pass1234', first_name='Admin', last_name='User',
+            role='admin',
+        )
+        self.manager = User.objects.create_user(
+            email='manager@acme.com', username='manager_acme',
+            password='pass1234', first_name='Mgr', last_name='User',
+            role='manager',
+        )
+        self.cashier = User.objects.create_user(
+            email='cashier@acme.com', username='cashier_acme',
+            password='pass1234', first_name='Cash', last_name='User',
+            role='cashier',
+        )
+
+    @patch('users.views.send_invitation_email')
+    def test_admin_can_invite(self, mock_send):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post('/api/users/invite/', {
+            'email': 'newstaff@acme.com', 'role': 'cashier',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(UserInvitation.objects.filter(email='newstaff@acme.com').exists())
+        mock_send.assert_called_once()
+
+    @patch('users.views.send_invitation_email')
+    def test_manager_can_invite(self, mock_send):
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.post('/api/users/invite/', {
+            'email': 'newstaff2@acme.com', 'role': 'attendant',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+
+    def test_cashier_cannot_invite(self):
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.post('/api/users/invite/', {
+            'email': 'newstaff3@acme.com', 'role': 'cashier',
+        }, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_unauthenticated_cannot_invite(self):
+        response = self.client.post('/api/users/invite/', {
+            'email': 'x@x.com', 'role': 'cashier',
+        }, format='json')
+        self.assertEqual(response.status_code, 401)
+
+    @patch('users.views.send_invitation_email')
+    def test_cannot_invite_admin_role(self, mock_send):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post('/api/users/invite/', {
+            'email': 'newadmin@acme.com', 'role': 'admin',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    @patch('users.views.send_invitation_email')
+    def test_cannot_invite_existing_user(self, mock_send):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post('/api/users/invite/', {
+            'email': 'cashier@acme.com', 'role': 'manager',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def _make_invitation(self, email='invite@acme.com', role='cashier', schema='public', hours_valid=48):
+        return UserInvitation.objects.create(
+            email=email,
+            role=role,
+            tenant_schema=schema,
+            invited_by_id=self.admin.pk,
+            expires_at=timezone.now() + timedelta(hours=hours_valid),
+        )
+
+    def test_accept_invite_creates_user(self):
+        inv = self._make_invitation()
+        response = self.client.post('/api/users/accept-invite/', {
+            'token': str(inv.token),
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+            'username': 'janedoe',
+            'password': 'securepass99',
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.content)
+        data = response.json()
+        self.assertIn('access', data)
+        self.assertIn('refresh', data)
+        self.assertEqual(data['user']['email'], 'invite@acme.com')
+        self.assertEqual(data['user']['role'], 'cashier')
+        inv.refresh_from_db()
+        self.assertIsNotNone(inv.accepted_at)
+
+    def test_accept_expired_invite_returns_400(self):
+        inv = self._make_invitation(hours_valid=-1)
+        response = self.client.post('/api/users/accept-invite/', {
+            'token': str(inv.token),
+            'first_name': 'Jane', 'last_name': 'Doe',
+            'username': 'janedoe2', 'password': 'securepass99',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('expired', response.json()['error'].lower())
+
+    def test_accept_already_used_invite_returns_400(self):
+        inv = self._make_invitation(email='used@acme.com')
+        inv.accepted_at = timezone.now()
+        inv.save()
+        response = self.client.post('/api/users/accept-invite/', {
+            'token': str(inv.token),
+            'first_name': 'A', 'last_name': 'B',
+            'username': 'uniqueuser', 'password': 'securepass99',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_accept_invalid_token_returns_400(self):
+        response = self.client.post('/api/users/accept-invite/', {
+            'token': '00000000-0000-0000-0000-000000000000',
+            'first_name': 'A', 'last_name': 'B',
+            'username': 'abc', 'password': 'securepass99',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_accept_wrong_tenant_schema_returns_400(self):
+        inv = self._make_invitation(schema='othertenant')
+        response = self.client.post('/api/users/accept-invite/', {
+            'token': str(inv.token),
+            'first_name': 'A', 'last_name': 'B',
+            'username': 'wrongschema', 'password': 'securepass99',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    @patch('users.views.send_invitation_email')
+    def test_list_invitations_requires_admin_or_manager(self, mock_send):
+        self.client.force_authenticate(user=self.cashier)
+        response = self.client.get('/api/users/invitations/')
+        self.assertEqual(response.status_code, 403)

@@ -75,6 +75,8 @@ TENANT_APPS = [
     'system_config',
     'fiscalization',
     'payments',
+    'approvals',
+    'assets',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -226,6 +228,11 @@ TENANT_SELF_REGISTRATION_ENABLED = config(
     'TENANT_SELF_REGISTRATION_ENABLED', default=False, cast=bool,
 )
 
+# Subscription settings
+TRIAL_DAYS = config('TRIAL_DAYS', default=14, cast=int)
+INVOICE_DUE_DAYS = config('INVOICE_DUE_DAYS', default=14, cast=int)
+PAYMENT_GRACE_PERIOD_DAYS = config('PAYMENT_GRACE_PERIOD_DAYS', default=7, cast=int)
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -313,6 +320,15 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+# Email
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Nexus ERP <noreply@nexuserp.com>')
 
 # Logging
 LOGGING = {

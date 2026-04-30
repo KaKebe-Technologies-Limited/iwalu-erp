@@ -23,6 +23,10 @@ backend/
 ├── hr/              # Employees, departments, leave, attendance, payroll
 ├── notifications/   # In-app notifications, preferences, templates
 ├── system_config/   # Tenant settings, approval thresholds, audit settings
+├── approvals/       # Multi-level approval workflows for critical transactions
+├── assets/          # Fixed asset tracking, depreciation, assignment, disposal (Phase 7d)
+├── fiscalization/   # EFRIS/URA tax integration (MockProvider + WeafProvider)
+├── payments/        # MTN MoMo, Airtel Money, Pesapal (collections + disbursements)
 ├── manage.py
 ├── requirements.txt
 └── Dockerfile
@@ -68,6 +72,16 @@ docker compose exec backend python manage.py shell
 docker compose exec db psql -U nexus_user -d nexus_db
 docker compose logs -f backend
 ```
+
+## Currency (UGX)
+- UGX has no fractional subdivision — use `DecimalField(decimal_places=0)` or `str(amount)` for JSON storage
+- Never use `float()` for currency; `str(Decimal)` is lossless when serializing to JSON
+- "Cents" terminology is wrong for UGX — avoid it in code, comments, and field names
+
+## Remaining Modules (Not Yet Built)
+- **Café & Bakery** — Menu, recipes, ingredient-level BOM, costing, dine-in/takeaway orders
+- **Project Management** — Projects, tasks, budgets, time tracking, profitability reports
+- **Manufacturing/BOM** — Raw materials, production orders, WIP, finished goods, unit costing
 
 ## Quality Gates
 - **Before pushing or completing a feature**: Run the `security-reviewer` agent to audit changes for vulnerabilities (OWASP top 10, Django-specific issues, permission gaps)
