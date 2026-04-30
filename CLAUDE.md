@@ -5,8 +5,8 @@
 **Team**: Backend (Django/PostgreSQL) + Frontend (Next.js)  
 **Stack**: Django 5.0/DRF, PostgreSQL 16, Redis, Next.js 14, TypeScript, Docker
 
-**Current Phase**: POS & Sales Module
-**Status**: ✅ Auth + Users | ✅ POS Backend | 🚧 Frontend Integration | ⏳ Next: Inventory/Reporting
+**Current Phase**: Phase 7 Backend Complete — Frontend Integration Pending
+**Status**: ✅ Phases 1–7 Backend | 🚧 Frontend Integration (Phases 5–7) | ⏳ Next: Café/Bakery, Projects, Manufacturing
 
 ---
 
@@ -23,11 +23,21 @@ erp/
 │       └── pos-sales.md
 ├── backend/                # Django REST API
 │   ├── config/            # Settings, URLs
-│   ├── users/             # User management, auth, social login
+│   ├── users/             # User management, auth, social login, invitations
 │   ├── outlets/           # Outlet management
 │   ├── products/          # Product catalog, categories, stock
 │   ├── sales/             # POS checkout, shifts, discounts, payments
-│   ├── tenants/           # Multi-tenancy
+│   ├── tenants/           # Multi-tenancy, subscription billing (Phase 7b)
+│   ├── inventory/         # Suppliers, POs, stock transfers, audit log
+│   ├── finance/           # Chart of accounts, journal entries, cash requisitions
+│   ├── hr/                # Employees, leave, attendance, payroll
+│   ├── fuel/              # Fuel pumps, tanks, reconciliation
+│   ├── approvals/         # Multi-level approval workflows (Phase 7c)
+│   ├── assets/            # Fixed asset tracking & depreciation (Phase 7d)
+│   ├── fiscalization/     # EFRIS/URA tax integration
+│   ├── notifications/     # In-app, email, SMS
+│   ├── payments/          # MTN MoMo, Airtel, Pesapal
+│   ├── system_config/     # Tenant-level settings
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/              # Next.js App
@@ -489,6 +499,6 @@ Use exact paths: `backend/users/views.py`, `frontend/app/(dashboard)/dashboard/u
 - Project Stage: @'Nexus ERP – Full System Proposal.pdf' Only refer to this to see what stage the project is at and what the next step should be.
 ---
 
-**Last Updated**: March 2026
-**Current Phase**: 3 - POS & Sales Module (Backend Complete)
-**Next Phase**: 4 - Inventory Management & Reporting
+**Last Updated**: April 2026
+**Current Phase**: 7 — All backend complete through Phase 7d (Assets)
+**Next Phase**: Café & Bakery Management, Project Management, Manufacturing/BOM
