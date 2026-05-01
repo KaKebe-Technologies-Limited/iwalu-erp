@@ -1,6 +1,6 @@
-# Phase 7 Implementation Plans
+# Implementation Plans
 
-This directory contains detailed, machine-readable implementation plans for Phase 7b, 7c, and 7d of the Nexus ERP backend.
+This directory contains detailed, machine-readable implementation plans for Phases 7 and 8 of the Nexus ERP backend.
 
 These plans are designed for **Gemini CLI**, **KiloCode**, or other code generation tools to implement with minimal human oversight. After implementation, a human reviewer should audit the work using the security review process documented in each plan.
 
@@ -73,6 +73,95 @@ These plans are designed for **Gemini CLI**, **KiloCode**, or other code generat
 - `assets/` — new app (models, views, serializers, urls, tests)
 - `assets/management/commands/calculate_monthly_depreciation.py` — cron task
 - `docs/modules/assets.md` — new documentation
+
+---
+
+## Phase 8 Plans
+
+### 4. **8a-cafe-bakery.md** — Café & Bakery Management
+
+**Scope**: Menu categories, menu items with BOM, dine-in/takeaway orders with atomic stock deduction, waste/expiry logging.
+
+**Deliverables**:
+- 6 models: `MenuCategory`, `MenuItem`, `MenuItemIngredient`, `MenuOrder`, `MenuOrderItem`, `WasteLog`
+- 10 endpoints (menu CRUD, BOM update, cost breakdown, orders, waste logs)
+- 1 management command (`check_cafe_expiry` — daily expiry alerts)
+- 40+ test cases
+- Atomic stock deduction via `inventory.OutletStock` on order creation
+
+**Time Estimate**: 3–4 days (Gemini) or 5–6 days (human)
+
+**Key Files**:
+- `cafe/` — new app (models, views, serializers, urls, tests)
+- `cafe/management/commands/check_cafe_expiry.py`
+- `backend/config/settings.py` — add `'cafe'` to `TENANT_APPS`
+- `backend/api/urls.py` — add `path('cafe/', ...)`
+- `docs/modules/cafe.md`
+
+**Integration**: `products.Product` (ingredients), `inventory.OutletStock` (deductions)
+
+---
+
+### 5. **8b-project-management.md** — Project Management
+
+**Scope**: Project lifecycle with budgets, tasks, expense tracking, time logging, approval workflow for large budgets, profitability reports.
+
+**Deliverables**:
+- 4 models: `Project`, `ProjectTask`, `ProjectExpense`, `ProjectTimeEntry`
+- 10 endpoints (project CRUD, submit, profitability, tasks, expenses, time entries)
+- 40+ test cases
+- Approval workflow integration for projects exceeding budget threshold
+
+**Time Estimate**: 4–5 days (Gemini) or 5–7 days (human)
+
+**Key Files**:
+- `projects/` — new app (models, views, serializers, urls, tests)
+- `approvals/models.py` — add `PROJECT = 'project'` to `ResourceType` choices + new migration
+- `backend/config/settings.py` — add `'projects'` to `TENANT_APPS`
+- `backend/api/urls.py` — add `path('projects/', ...)`
+- `docs/modules/projects.md`
+
+**Integration**: `approvals.ApprovalRequest` (budget threshold), `hr` employee IDs, optional `finance.JournalEntry`
+
+---
+
+### 6. **8c-manufacturing-bom.md** — Manufacturing & Bill of Materials
+
+**Scope**: BOM definition, production orders, atomic raw→finished stock conversion, WIP snapshots, unit costing, BOM cost refresh command.
+
+**Deliverables**:
+- 5 models: `BillOfMaterials`, `BOMItem`, `ProductionOrder`, `ProductionOrderItem`, `WorkInProgress`
+- 8 endpoints (BOM CRUD, cost breakdown, production order lifecycle: start, complete, WIP)
+- 1 management command (`update_bom_costs` — refresh unit costs from product prices)
+- 40+ test cases
+- Atomic stock deduction (raw materials out, finished goods in) with `select_for_update()`
+
+**Time Estimate**: 4–5 days (Gemini) or 5–6 days (human)
+
+**Key Files**:
+- `manufacturing/` — new app (models, views, serializers, urls, tests)
+- `manufacturing/management/commands/update_bom_costs.py`
+- `backend/config/settings.py` — add `'manufacturing'` to `TENANT_APPS`
+- `backend/api/urls.py` — add `path('manufacturing/', ...)`
+- `docs/modules/manufacturing.md`
+
+**Integration**: `products.Product` (raw + finished), `inventory.OutletStock` (deductions), `inventory.StockAuditLog` (audit trail)
+
+---
+
+## Implementation Order for Phase 8
+
+**Sequential** (safest — each can be reviewed before next starts):
+1. **8a** (café/bakery) — standalone, no new cross-app dependencies
+2. **8c** (manufacturing) — standalone, only inventory/products integration
+3. **8b** (projects) — last, because it requires modifying `approvals` app with a new ResourceType
+
+**Parallel** (if multiple developers):
+- **Dev A**: 8a (café) — no conflicts with other Phase 8 apps
+- **Dev B**: 8c (manufacturing) — no conflicts with other Phase 8 apps
+- **Dev C**: 8b (projects) — must coordinate with approvals migration (do not touch approvals while Dev B is running migrations)
+
+**Critical dependency**: `8b` requires adding `PROJECT` to `approvals.ApprovalPolicy.ResourceType`. This adds a Django migration to the `approvals` app. If done in parallel, coordinate migration numbering with any other branch touching `approvals`.
 
 ---
 
