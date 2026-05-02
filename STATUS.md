@@ -23,6 +23,8 @@
 | 7b | SaaS Operations | Not started | Not started | Planned |
 | 7c | Approval Workflows | Done | Pending | Backend Complete |
 | 7d | Pump Hardware & Fleet | Not started | Not started | Future |
+| 8a | Café & Bakery | Not started | Not started | Planned |
+| 8c | Manufacturing & BOM | Done | Pending | Backend Complete |
 
 ---
 
@@ -88,6 +90,7 @@
 | users (invitations) | +1 | 3 (invite, accept-invite, invitations) | +12 | `docs/modules/user-invitation.md` |
 | fiscalization | 2 | 6 | ~25 | `docs/modules/fiscalization.md` |
 | approvals | 3 | 8 | 6+ | `docs/modules/approvals.md` |
+| manufacturing | 5 | 8 | 6 | `docs/modules/manufacturing.md` |
 
 ---
 
