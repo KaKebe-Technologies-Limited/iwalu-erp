@@ -38,7 +38,17 @@
 - `POST /api/payments/disburse/` — Direct Mobile Money disbursement.
 - `GET /api/auth/me/permissions/` — Role-based access control (RBAC) definitions.
 
+## Phase 8 (In Progress)
+
+### New Apps
+- **cafe** — Menu management, Recipe/BOM stock deduction, Order lifecycle, and Waste tracking.
+
+### Key Endpoints
+- `POST /api/cafe/orders/` — Create order with atomic stock deduction.
+- `GET /api/cafe/menu-items/{id}/cost/` — BOM-based cost breakdown.
+
 ## Infrastructure Updates
+...
 - **Multi-tenancy**: Self-service registration via `POST /api/tenants/register/`.
 - **Security**: Hardened permission classes and role-based feature gating.
 - **Docker**: Optimized for `pnpm` caching and named volumes for frontend speed.
