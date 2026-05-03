@@ -27,6 +27,7 @@ Represents a dine-in or takeaway order.
 - `order_number`: Auto-generated (ORD-YYYYMMDD-XXXX).
 - `status`: pending, preparing, ready, completed, cancelled.
 - `total_amount`: Total order value.
+- `outlet_id`: Required reference to the outlet where order is placed (for stock auditing).
 
 ### WasteLog
 Records ingredient spoilage or expiry.
