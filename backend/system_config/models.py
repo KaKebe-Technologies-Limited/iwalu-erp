@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.timezone import now as timezone_now
+from decimal import Decimal
 
 
 class SystemConfig(models.Model):
@@ -39,6 +40,12 @@ class SystemConfig(models.Model):
     # Notification defaults
     enable_email_notifications = models.BooleanField(default=False)
     enable_sms_notifications = models.BooleanField(default=False)
+    
+    # Project approval
+    project_approval_threshold = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal('0'),
+        help_text='Budget threshold for project approval'
+    )
 
     created_at = models.DateTimeField(default=timezone_now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
