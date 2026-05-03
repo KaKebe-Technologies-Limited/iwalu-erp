@@ -78,14 +78,104 @@ docker compose logs -f backend
 - Never use `float()` for currency; `str(Decimal)` is lossless when serializing to JSON
 - "Cents" terminology is wrong for UGX — avoid it in code, comments, and field names
 
-## Remaining Modules (Not Yet Built)
-- **Café & Bakery** — Menu, recipes, ingredient-level BOM, costing, dine-in/takeaway orders
-- **Project Management** — Projects, tasks, budgets, time tracking, profitability reports
-- **Manufacturing/BOM** — Raw materials, production orders, WIP, finished goods, unit costing
+## Phase 8 Learnings (Café, Projects, Manufacturing)
+
+### DRF Router & URL Ordering
+When registering multiple ViewSets with a single DefaultRouter, **router registration order matters**:
+- **Problem**: Registering with `r''` (empty pattern) for ProjectViewSet first caused it to catch ALL requests, including those meant for child routes like `/projects/expenses/`.
+- **Solution**: Register more specific routes (tasks, expenses, time-entries) BEFORE the empty root pattern.
+- **Pattern**: `router.register(r'specific', ...); router.register(r'', root_vs)` ensures specific routes are matched first.
+
+### Permission Operator Syntax
+Combine DRF permission classes with `|` operator **on the class, not instances**:
+```python
+# ❌ Wrong: Cannot use | on instances
+return [IsAdminOrManager() | IsAccountant()]
+
+# ✅ Correct: Use | on classes, then instantiate
+return [(IsAdminOrManager | IsAccountant)()]
+```
+
+### Decimal Handling in Serializers
+`sum()` returns `int(0)` when the iterable is empty, not `Decimal`. Always initialize Decimal explicitly:
+```python
+# ❌ Wrong: sum() with empty list returns int
+total = sum(item.cost for item in empty_list)
+total.quantize(Decimal('0.01'))  # AttributeError: 'int' has no attribute 'quantize'
+
+# ✅ Correct: Initialize as Decimal, accumulate in loop
+total = Decimal('0')
+for item in items:
+    total += item.cost
+return total.quantize(Decimal('0.01'))
+```
+
+### Atomic Operations with F() Expressions
+Use F() and transaction.atomic() for race-condition-safe updates:
+```python
+# Update project.actual_cost without fetching, preventing lost updates
+with transaction.atomic():
+    Project.objects.filter(pk=expense.project_id).update(
+        actual_cost=F('actual_cost') + expense.amount
+    )
+    # For deletes, use Greatest() to prevent negative values
+    Project.objects.filter(pk=pk).update(
+        actual_cost=Greatest(F('actual_cost') - amount, Decimal('0'))
+    )
+```
+
+### ViewSet Endpoint Validation
+When updates affect parent objects, validate child-to-parent relationships:
+```python
+# In serializer.validate(), check that updated child still points to the correct parent
+def validate_project(self, value):
+    if self.instance and value.id != self.instance.project_id:
+        raise ValidationError("Cannot reassign to a different project during update.")
+    return value
+```
+
+### Management Command Multi-Tenancy
+Wrap command logic with tenant_context to iterate over all tenant schemas:
+```python
+from django_tenants.utils import get_tenant_model, tenant_context
+
+def handle(self, *args, **options):
+    for tenant in get_tenant_model().objects.all():
+        with tenant_context(tenant):
+            # Command logic runs against this tenant's schema
+            Product.objects.all().update(...)
+```
+
+## Completed Modules (Phase 8)
+- **Café & Bakery** — Menu, recipes, ingredient-level BOM, costing, dine-in/takeaway orders. ✅
+- **Project Management** — Projects, tasks, budgets, time tracking, profitability reports. ✅
+- **Manufacturing/BOM** — Raw materials, production orders, WIP, finished goods, unit costing. ✅
+
+## Post-Phase Workflow
+
+### After Code Review Approval
+1. Ensure all tests pass: `docker compose exec backend python manage.py test <app>`
+2. Run security review: Use `/security-reviewer` agent or `security-review` skill.
+3. Commit with co-author: Include `Co-Authored-By:` footer if pair-reviewed.
+4. Push to branch: `git push origin <branch>`.
+5. Create PR or direct merge based on team decision.
+6. Update documentation: Module docs in `docs/modules/`, STATUS.md, CLAUDE.md.
+7. Notify frontend team: Post to #dev with module readiness, API endpoints, and integration notes.
+
+### Code Review Checklist (Before PR)
+- [ ] All tests pass (100% pass rate, no skipped tests).
+- [ ] DRF permission classes correctly configured on all ViewSets.
+- [ ] URL routing doesn't have conflicting patterns.
+- [ ] Serializers handle edge cases (empty lists, null values, Decimals).
+- [ ] Atomic operations use F() expressions and transaction.atomic().
+- [ ] Documentation updated for new endpoints and models.
+- [ ] No N+1 queries (use select_related, prefetch_related).
+- [ ] No hardcoded values; use constants or settings.
 
 ## Quality Gates
-- **Before pushing or completing a feature**: Run the `security-reviewer` agent to audit changes for vulnerabilities (OWASP top 10, Django-specific issues, permission gaps)
-- **After adding a new module**: Create documentation in `docs/modules/` and update STATUS.md
+- **Before pushing**: Run `security-reviewer` agent to audit changes for vulnerabilities (OWASP top 10, Django-specific issues, permission gaps).
+- **Before PR**: Ensure all tests pass, documentation is complete, and code follows conventions above.
+- **After module completion**: Update STATUS.md, CLAUDE.md, and docs/modules/.
 
 ## Standards
 Refer to backend standards in @../CLAUDE.md
