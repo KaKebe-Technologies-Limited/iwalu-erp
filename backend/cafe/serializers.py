@@ -53,14 +53,16 @@ class MenuOrderItemSerializer(serializers.ModelSerializer):
 
 class MenuOrderSerializer(serializers.ModelSerializer):
     items = MenuOrderItemSerializer(many=True, read_only=True)
+    outlet_name = serializers.CharField(source='outlet.name', read_only=True)
 
     class Meta:
         model = MenuOrder
         fields = [
             'id', 'order_number', 'order_type', 'table_number', 'status',
-            'cashier_id', 'total_amount', 'notes', 'items', 'created_at', 'updated_at'
+            'outlet', 'outlet_name', 'cashier_id', 'total_amount', 'notes',
+            'items', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'order_number', 'total_amount', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'order_number', 'outlet', 'cashier_id', 'total_amount', 'created_at', 'updated_at']
 
 
 class WasteLogSerializer(serializers.ModelSerializer):

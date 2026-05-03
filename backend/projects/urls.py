@@ -1,13 +1,16 @@
 from rest_framework.routers import DefaultRouter
+from django.urls import path, include
 from .views import (
     ProjectViewSet, ProjectTaskViewSet,
     ProjectExpenseViewSet, ProjectTimeEntryViewSet
 )
 
 router = DefaultRouter()
-router.register(r'projects', ProjectViewSet)
-router.register(r'tasks', ProjectTaskViewSet)
-router.register(r'expenses', ProjectExpenseViewSet)
-router.register(r'time-entries', ProjectTimeEntryViewSet)
+router.register(r'tasks', ProjectTaskViewSet, basename='projecttask')
+router.register(r'expenses', ProjectExpenseViewSet, basename='projectexpense')
+router.register(r'time-entries', ProjectTimeEntryViewSet, basename='projecttimeentry')
+router.register(r'', ProjectViewSet, basename='project')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('', include(router.urls)),
+]

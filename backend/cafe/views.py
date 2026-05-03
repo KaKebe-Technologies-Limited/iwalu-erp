@@ -1,5 +1,5 @@
-from django.shortcuts import render, get_object_or_404
-from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
@@ -14,6 +14,16 @@ from .serializers import (
 )
 from users.permissions import IsAdminOrManager, IsCashierOrAbove, IsAccountant, IsAccountantOrAbove
 from inventory.models import OutletStock, StockAuditLog
+from products.models import Product
+
+
+ALLOWED_ORDER_TRANSITIONS = {
+    'pending': ['preparing', 'cancelled'],
+    'preparing': ['ready', 'cancelled'],
+    'ready': ['completed', 'cancelled'],
+    'completed': [],
+    'cancelled': [],
+}
 
 
 class MenuCategoryViewSet(viewsets.ModelViewSet):
@@ -36,7 +46,9 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
 
 
 class MenuItemViewSet(viewsets.ModelViewSet):
-    queryset = MenuItem.objects.all()
+    queryset = MenuItem.objects.select_related('category').prefetch_related(
+        'ingredients', 'ingredients__product'
+    ).all()
     serializer_class = MenuItemSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'is_available', 'has_bom']
@@ -47,7 +59,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_bom']:
             return [IsAdminOrManager()]
         if self.action == 'cost':
-            return [IsAdminOrManager() or IsAccountant()]
+            return [(IsAdminOrManager | IsAccountant)()]
         return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=['post'], url_path='update-bom')
@@ -59,19 +71,26 @@ class MenuItemViewSet(viewsets.ModelViewSet):
             return Response({"error": "Ingredients must be a list"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            # Delete existing ingredients
             MenuItemIngredient.objects.filter(menu_item=menu_item).delete()
 
-            # Create new ingredients
             for item in ingredients_data:
+                product = get_object_or_404(Product, id=item.get('product_id'))
+                qty = item.get('quantity_per_serving')
+                unit = item.get('unit')
+                if not qty or not unit:
+                    return Response(
+                        {"error": "Each ingredient requires product_id, quantity_per_serving, and unit"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 MenuItemIngredient.objects.create(
                     menu_item=menu_item,
-                    product_id=item.get('product_id'),
-                    quantity_per_serving=item.get('quantity_per_serving'),
-                    unit=item.get('unit')
+                    product=product,
+                    quantity_per_serving=qty,
+                    unit=unit
                 )
 
             menu_item.has_bom = True
+            menu_item.save(update_fields=['has_bom', 'updated_at'])
             menu_item.recompute_cost_price()
 
         return Response({
@@ -109,7 +128,9 @@ class MenuItemViewSet(viewsets.ModelViewSet):
 
 
 class MenuOrderViewSet(viewsets.ModelViewSet):
-    queryset = MenuOrder.objects.all()
+    queryset = MenuOrder.objects.select_related('outlet').prefetch_related(
+        'items', 'items__menu_item'
+    ).all()
     serializer_class = MenuOrderSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'order_type']
@@ -121,8 +142,9 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
 
     def _generate_order_number(self):
         date_str = timezone.now().strftime('%Y%m%d')
-        # Get count of orders today to increment
-        count = MenuOrder.objects.filter(created_at__date=timezone.now().date()).count() + 1
+        count = MenuOrder.objects.filter(
+            order_number__startswith=f"ORD-{date_str}"
+        ).count() + 1
         return f"ORD-{date_str}-{count:04d}"
 
     def create(self, request, *args, **kwargs):
@@ -134,26 +156,30 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
         if not outlet_id:
             return Response({"error": "outlet_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        from outlets.models import Outlet
+        outlet = get_object_or_404(Outlet, id=outlet_id)
+
         with transaction.atomic():
-            # 1. Validate items and collect stock requirements
             stock_requirements = {}
             validated_items = []
 
             for item_data in items_data:
-                menu_item = MenuItem.objects.get(id=item_data.get('menu_item_id'))
+                menu_item = get_object_or_404(MenuItem, id=item_data.get('menu_item_id'))
                 if not menu_item.is_available:
-                    return Response({"error": f"Item '{menu_item.name}' is currently unavailable"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"error": f"Item '{menu_item.name}' is currently unavailable"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 quantity = int(item_data.get('quantity', 1))
                 validated_items.append((menu_item, quantity, item_data.get('special_instructions', '')))
 
                 if menu_item.has_bom:
-                    for ing in menu_item.ingredients.all():
+                    for ing in menu_item.ingredients.select_related('product').all():
                         prod_id = ing.product_id
                         required_qty = ing.quantity_per_serving * quantity
                         stock_requirements[prod_id] = stock_requirements.get(prod_id, Decimal('0')) + required_qty
 
-            # 2. Check stock sufficiency
             shortages = []
             for prod_id, required_qty in stock_requirements.items():
                 try:
@@ -175,14 +201,21 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
             if shortages:
                 return Response({"error": "Insufficient stock", "shortages": shortages}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 3. Deduct stock and create order
-            order = MenuOrder.objects.create(
-                order_number=self._generate_order_number(),
-                order_type=request.data.get('order_type'),
-                table_number=request.data.get('table_number', ''),
-                cashier_id=request.user.id,
-                notes=request.data.get('notes', '')
-            )
+            for attempt in range(10):
+                try:
+                    order = MenuOrder.objects.create(
+                        order_number=self._generate_order_number(),
+                        order_type=request.data.get('order_type'),
+                        table_number=request.data.get('table_number', ''),
+                        outlet=outlet,
+                        cashier_id=request.user.id,
+                        notes=request.data.get('notes', '')
+                    )
+                    break
+                except IntegrityError:
+                    if attempt == 9:
+                        raise
+                    continue
 
             total_amount = Decimal('0')
             for menu_item, quantity, instructions in validated_items:
@@ -196,13 +229,12 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
                 total_amount += order_item.line_total
 
                 if menu_item.has_bom:
-                    for ing in menu_item.ingredients.all():
+                    for ing in menu_item.ingredients.select_related('product').all():
                         stock = OutletStock.objects.get(outlet_id=outlet_id, product_id=ing.product_id)
                         qty_before = stock.quantity
                         stock.quantity -= (ing.quantity_per_serving * quantity)
                         stock.save()
 
-                        # Log stock movement
                         StockAuditLog.objects.create(
                             product=ing.product,
                             outlet_id=outlet_id,
@@ -222,8 +254,8 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'])
-    def status(self, request, pk=None):
+    @action(detail=True, methods=['post'], url_path='status')
+    def update_status(self, request, pk=None):
         order = self.get_object()
         new_status = request.data.get('status')
 
@@ -231,45 +263,41 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
         if new_status not in valid_statuses:
             return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Basic state machine validation
-        current = order.status
-        if current == MenuOrder.Status.COMPLETED:
-            return Response({"error": "Completed orders cannot be changed"}, status=status.HTTP_400_BAD_REQUEST)
+        allowed = ALLOWED_ORDER_TRANSITIONS.get(order.status, [])
+        if new_status not in allowed:
+            return Response(
+                {"error": f"Cannot transition from '{order.status}' to '{new_status}'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         with transaction.atomic():
-            if new_status == MenuOrder.Status.CANCELLED and current != MenuOrder.Status.CANCELLED:
-                # Restore stock - this would require knowing the outlet_id.
-                # In a real system, the order should probably store the outlet_id.
-                # Let's assume for this implementation we might need it or store it.
-                # Since MenuOrder model in plan didn't have outlet_id, we might have a gap.
-                # But wait, StockAuditLog usually has outlet.
-                # I'll check if I should add outlet to MenuOrder.
-                # The plan didn't have it, but it's needed for cancellation stock restoration.
-                # I'll look at the last StockAuditLog for this order to find the outlet.
-                audit = StockAuditLog.objects.filter(reference_type='menu_order', reference_id=order.id).first()
-                if audit and audit.outlet:
-                    outlet_id = audit.outlet_id
-                    for item in order.items.all():
-                        if item.menu_item.has_bom:
-                            for ing in item.menu_item.ingredients.all():
-                                stock = OutletStock.objects.get(outlet_id=outlet_id, product_id=ing.product_id)
-                                qty_before = stock.quantity
-                                qty_to_restore = ing.quantity_per_serving * item.quantity
-                                stock.quantity += qty_to_restore
-                                stock.save()
-
-                                StockAuditLog.objects.create(
-                                    product=ing.product,
-                                    outlet_id=outlet_id,
-                                    movement_type='void',
-                                    quantity_change=qty_to_restore,
-                                    quantity_before=qty_before,
-                                    quantity_after=stock.quantity,
-                                    reference_type='menu_order_cancel',
-                                    reference_id=order.id,
-                                    user_id=request.user.id,
-                                    notes=f"Cancelled Order {order.order_number}"
+            if new_status == MenuOrder.Status.CANCELLED:
+                for item in order.items.select_related('menu_item').all():
+                    if item.menu_item.has_bom:
+                        for ing in item.menu_item.ingredients.select_related('product').all():
+                            try:
+                                stock = OutletStock.objects.get(
+                                    outlet_id=order.outlet_id, product_id=ing.product_id
                                 )
+                            except OutletStock.DoesNotExist:
+                                continue
+                            qty_before = stock.quantity
+                            qty_to_restore = ing.quantity_per_serving * item.quantity
+                            stock.quantity += qty_to_restore
+                            stock.save()
+
+                            StockAuditLog.objects.create(
+                                product=ing.product,
+                                outlet_id=order.outlet_id,
+                                movement_type='void',
+                                quantity_change=qty_to_restore,
+                                quantity_before=qty_before,
+                                quantity_after=stock.quantity,
+                                reference_type='menu_order_cancel',
+                                reference_id=order.id,
+                                user_id=request.user.id,
+                                notes=f"Cancelled Order {order.order_number}"
+                            )
 
             order.status = new_status
             order.save()
@@ -282,16 +310,17 @@ class MenuOrderViewSet(viewsets.ModelViewSet):
 
 
 class WasteLogViewSet(viewsets.ModelViewSet):
-    queryset = WasteLog.objects.all()
+    queryset = WasteLog.objects.select_related('product').all()
     serializer_class = WasteLogSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['reason', 'product']
     ordering_fields = ['recorded_at', 'quantity']
+    http_method_names = ['get', 'post', 'head', 'options']
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [IsAdminOrManager() or IsAccountant()]
-        return [permissions.IsAuthenticated()]
+            return [IsAdminOrManager() | IsAccountant()]
+        return [IsCashierOrAbove()]
 
     def perform_create(self, serializer):
         serializer.save(recorded_by_id=self.request.user.id)

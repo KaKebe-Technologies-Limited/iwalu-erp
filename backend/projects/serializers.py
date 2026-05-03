@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Project, ProjectTask, ProjectExpense, ProjectTimeEntry
 
+
 class ProjectSerializer(serializers.ModelSerializer):
     budget_remaining = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     is_over_budget = serializers.BooleanField(read_only=True)
@@ -16,6 +17,14 @@ class ProjectSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['project_number', 'status', 'actual_cost', 'approval_request', 'created_at', 'updated_at']
 
+    def validate(self, data):
+        start = data.get('start_date', getattr(self.instance, 'start_date', None))
+        end = data.get('end_date', getattr(self.instance, 'end_date', None))
+        if start and end and end < start:
+            raise serializers.ValidationError({'end_date': 'End date cannot be before start date.'})
+        return data
+
+
 class ProjectTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectTask
@@ -25,6 +34,12 @@ class ProjectTaskSerializer(serializers.ModelSerializer):
             'completed_at', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_by_id', 'completed_at', 'created_at', 'updated_at']
+
+    def validate_project(self, value):
+        if self.instance and self.instance.project_id != value.id:
+            raise serializers.ValidationError("Cannot change the project of an existing task.")
+        return value
+
 
 class ProjectExpenseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,6 +51,12 @@ class ProjectExpenseSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['incurred_by_id', 'approved_by_id', 'journal_entry_id', 'created_at', 'updated_at']
 
+    def validate_project(self, value):
+        if self.instance and self.instance.project_id != value.id:
+            raise serializers.ValidationError("Cannot change the project of an existing expense.")
+        return value
+
+
 class ProjectTimeEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectTimeEntry
@@ -45,3 +66,8 @@ class ProjectTimeEntrySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['staff_id', 'created_at']
         extra_kwargs = {'task': {'required': False}}
+
+    def validate_project(self, value):
+        if self.instance and self.instance.project_id != value.id:
+            raise serializers.ValidationError("Cannot change the project of an existing time entry.")
+        return value

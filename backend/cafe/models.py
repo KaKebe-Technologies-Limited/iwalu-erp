@@ -81,9 +81,8 @@ class MenuItem(models.Model):
         if not self.has_bom:
             return
         total = sum(
-            ing.product.cost_price * ing.quantity_per_serving
+            (ing.product.cost_price or Decimal('0')) * ing.quantity_per_serving
             for ing in self.ingredients.select_related('product').all()
-            if hasattr(ing.product, 'cost_price') and ing.product.cost_price
         )
         self.cost_price = total
         self.save(update_fields=['cost_price', 'updated_at'])
@@ -151,6 +150,11 @@ class MenuOrder(models.Model):
     )
     status = models.CharField(
         max_length=15, choices=Status.choices, default=Status.PENDING
+    )
+
+    outlet = models.ForeignKey(
+        'outlets.Outlet', on_delete=models.PROTECT,
+        help_text='Outlet where this order was placed'
     )
 
     # Cashier who created the order (cross-schema IntegerField)

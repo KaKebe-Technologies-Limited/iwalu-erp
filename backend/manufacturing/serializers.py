@@ -44,6 +44,19 @@ class BillOfMaterialsSerializer(serializers.ModelSerializer):
     def get_items_count(self, obj):
         return obj.items.count()
 
+    def validate(self, data):
+        items = data.get('items', [])
+        finished_product = data.get('finished_product')
+        seen = set()
+        for item in items:
+            rm = item['raw_material']
+            if finished_product and rm.id == finished_product.id:
+                raise serializers.ValidationError("A BOM item cannot use the finished product as a raw material.")
+            if rm.id in seen:
+                raise serializers.ValidationError(f"Duplicate raw material: {rm.name}")
+            seen.add(rm.id)
+        return data
+
     def create(self, validated_data):
         items_data = validated_data.pop('items')
         bom = BillOfMaterials.objects.create(**validated_data)
@@ -162,7 +175,10 @@ class BOMCostBreakdownSerializer(serializers.Serializer):
         return f"{obj.output_quantity} {obj.output_unit}"
 
     def get_total_batch_cost(self, obj):
-        return (obj.unit_cost * obj.output_quantity).quantize(Decimal('0.01'))
+        total = Decimal('0')
+        for item in obj.items.select_related('raw_material').all():
+            total += item.effective_quantity * (item.raw_material.cost_price or Decimal('0'))
+        return total.quantize(Decimal('0.01'))
 
     def get_items(self, obj):
         return [

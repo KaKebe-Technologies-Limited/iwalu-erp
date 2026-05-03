@@ -1,19 +1,29 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Count
+from django.contrib.auth import get_user_model
+from django_tenants.utils import get_tenant_model, tenant_context
 from datetime import timedelta
 from cafe.models import WasteLog
 from notifications.services import create_notification
-from django.contrib.auth import get_user_model
+
 
 class Command(BaseCommand):
     help = 'Identify products near expiry based on WasteLog trends and notify managers'
 
     def handle(self, *args, **options):
+        TenantModel = get_tenant_model()
+        tenants = TenantModel.objects.exclude(schema_name='public')
+
+        for tenant in tenants:
+            with tenant_context(tenant):
+                self.stdout.write(f"\n--- Tenant: {tenant.schema_name} ---")
+                self._check_tenant_expiry()
+
+    def _check_tenant_expiry(self):
         User = get_user_model()
         seven_days_ago = timezone.now() - timedelta(days=7)
-        
-        # Products with 3+ expired logs in the last 7 days
+
         expired_trends = WasteLog.objects.filter(
             reason=WasteLog.Reason.EXPIRED,
             recorded_at__gte=seven_days_ago
@@ -25,14 +35,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('No recurring expiry trends found.'))
             return
 
-        # Notify managers
         managers = User.objects.filter(role__in=['admin', 'manager'])
-        
+
         for trend in expired_trends:
             product_name = trend['product__name']
             count = trend['expired_count']
-            message = f"Product '{product_name}' has been logged as expired {count} times in the last 7 days. Please review stock levels and ordering."
-            
+            message = (
+                f"Product '{product_name}' has been logged as expired {count} times "
+                f"in the last 7 days. Please review stock levels and ordering."
+            )
+
             for manager in managers:
                 create_notification(
                     recipient_id=manager.id,
@@ -43,7 +55,9 @@ class Command(BaseCommand):
                     source_type='Product',
                     reference_id=trend['product']
                 )
-            
+
             self.stdout.write(self.style.WARNING(f"Trend found: {product_name} ({count} expirations)"))
 
-        self.stdout.write(self.style.SUCCESS(f"Finished checking expiry trends. {expired_trends.count()} alerts generated."))
+        self.stdout.write(
+            self.style.SUCCESS(f"Finished checking expiry trends. {expired_trends.count()} alerts generated.")
+        )

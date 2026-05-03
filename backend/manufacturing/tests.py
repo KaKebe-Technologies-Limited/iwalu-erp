@@ -197,8 +197,8 @@ class ManufacturingTestCase(TenantTestCase):
         self._auth(self.admin)
         bom = BillOfMaterials.objects.create(
             name="Inactive BOM", finished_product=self.bread,
-            output_quantity=Decimal('10'), is_active=False,
-            created_by_id=self.admin.id
+            output_quantity=Decimal('10'), output_unit="piece",
+            is_active=False, created_by_id=self.admin.id
         )
         
         response = self.client.post('/api/manufacturing/orders/', {

@@ -129,7 +129,7 @@ class ProjectTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['priority', 'due_date']
+        ordering = ['due_date']
         indexes = [
             models.Index(fields=['project', 'status']),
             models.Index(fields=['assigned_to_id', 'status']),
