@@ -13,6 +13,7 @@ class ApprovalPolicy(models.Model):
         PAYROLL_RUN = 'payroll_run', 'Payroll Run'
         CASH_REQUISITION = 'cash_requisition', 'Cash Requisition'
         STOCK_ADJUSTMENT = 'stock_adjustment', 'Stock Adjustment'
+        PROJECT = 'project', 'Project'
 
     name = models.CharField(max_length=200, help_text='e.g., "PO Approval — High Value"')
     resource_type = models.CharField(max_length=50, choices=ResourceType.choices)
