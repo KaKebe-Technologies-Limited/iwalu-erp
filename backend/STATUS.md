@@ -74,12 +74,38 @@
 - **Security**: Hardened permission classes and role-based feature gating.
 - **Docker**: Optimized for `pnpm` caching and named volumes for frontend speed.
 
-## Upcoming (Phase 9 onwards)
-- [ ] Frontend integration (Phases 5–8): Build Next.js UI for all completed backend modules.
+## Upcoming Phases
+
+### Phase 9 — Mobile API Layer (Planned)
+- [ ] `mobile_api` app — mobile JWT auth (cashier/attendant only), shift-start data bundle, batch offline sync, shift-close guard, sensitive endpoint hardening with `IsNotMobileClient`.
+- Branch: `feat-phase-9-mobile-api` | Plan: `docs/plans/phase-9-mobile-api.md`
+
+### Phase 10 — Reports & Analytics Completeness (Planned)
+- [ ] HR/payroll reports (headcount, attendance, leave, payroll summary)
+- [ ] Project performance and time-tracking reports
+- [ ] EFRIS/tax compliance export (JSON + CSV)
+- [ ] Role-based enhanced dashboard (admin/manager/accountant/cashier sections)
+- Branch: `feat-phase-10-reports` | Plan: `docs/plans/phase-10-reports-analytics.md`
+
+### Phase 11 — Inventory Enhancements (Planned)
+- [ ] `ProductBatch` model — expiry date tracking with FIFO deduction at checkout
+- [ ] Expiring-soon alert endpoint
+- [ ] `Bundle` + `BundleItem` models — bridal/supermarket package sales
+- [ ] Bundle checkout integration (expands to constituent products)
+- Branch: `feat-phase-11-inventory-enhancements` | Plan: `docs/plans/phase-11-inventory-enhancements.md`
+
+### Phase 12 — Finance Completeness (Planned)
+- [ ] `Budget` + `BudgetLine` models — per-period/department budget with variance reporting
+- [ ] Soft budget enforcement on cash requisitions
+- [ ] `SupplierInvoice` + `APPayment` — accounts payable with AP aging report
+- [ ] Outlet-level P&L filter on existing `profit_loss_view`
+- Branch: `feat-phase-12-finance-completeness` | Plan: `docs/plans/phase-12-finance-completeness.md`
+
+### Post-Phase-12 Backlog
 - [ ] Pump hardware protocol integration (IFSF/Gilbarco/Wayne).
+- [ ] Accounts receivable (credit customer invoicing).
 - [ ] Fleet Card / B2B module.
 - [ ] Platform-wide analytics dashboard for Kakebe admin.
-- [ ] Mobile app (React Native or Flutter) for field staff.
 
 ## Testing
 - **Backend**: 33+ unit tests covering all Phase 8 modules (café, projects, manufacturing).
