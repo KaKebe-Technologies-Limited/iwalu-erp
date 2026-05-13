@@ -31,3 +31,8 @@ pnpm run type-check
 ---
 
 Refer to root `GEMINI.md` for overall project standards.
+
+## Key Documentation (Read Before Starting Any Module)
+- **Frontend dev guide** (gaps, priority order, role routing, POS layout, offline): `../docs/FRONTEND_DEV_GUIDE.md`
+- **Architecture decisions** (platform, hardware, offline sync protocol): `../docs/ARCHITECTURE.md`
+- **Mobile app plan** (React Native scope — separate codebase): `../docs/mobile-app-plan.md`
