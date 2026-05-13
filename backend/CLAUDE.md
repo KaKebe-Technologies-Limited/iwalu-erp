@@ -151,6 +151,11 @@ def handle(self, *args, **options):
 - **Project Management** — Projects, tasks, budgets, time tracking, profitability reports. ✅
 - **Manufacturing/BOM** — Raw materials, production orders, WIP, finished goods, unit costing. ✅
 
+## Phase 9 — Remaining Backend Work
+- **Mobile API layer** (`mobile_api` app) — `/api/mobile/` endpoints for React Native app: mobile JWT, shift-start-data snapshot, batch sync, shift-close validation. Plan: `docs/plans/phase-9-mobile-api.md`.
+- **Fuel pump hardware adapter** — Real protocol adapter (IFSF/serial) once client hardware is confirmed. API contract + mock controller are done at `/api/fuel/pump-events/`. Guide: `docs/fuel-pump-integration.md`.
+- **Reporting completeness** — Verify all proposal analytics are covered in the `reports` app.
+
 ## Post-Phase Workflow
 
 ### After Code Review Approval
