@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Pump, Tank, TankReading, PumpReading,
-    FuelDelivery, FuelReconciliation,
+    FuelDelivery, FuelReconciliation, PumpEvent,
 )
 
 
@@ -190,3 +190,55 @@ class ReconciliationRequestSerializer(serializers.Serializer):
         max_digits=12, decimal_places=3, required=False, allow_null=True,
     )
     notes = serializers.CharField(required=False, allow_blank=True, default='', max_length=2000)
+
+
+# ---------- Pump Event ----------
+
+class PumpEventSerializer(serializers.ModelSerializer):
+    pump_number = serializers.IntegerField(source='pump.pump_number', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
+
+    class Meta:
+        model = PumpEvent
+        fields = [
+            'id', 'pump', 'pump_number', 'event_type', 'event_type_display',
+            'litres', 'amount_ugx', 'meter_start', 'meter_end',
+            'attendant_id', 'source', 'source_display',
+            'raw_payload', 'occurred_at', 'created_at',
+        ]
+        read_only_fields = ('created_at',)
+
+
+class PumpEventCreateSerializer(serializers.Serializer):
+    pump_id = serializers.IntegerField()
+    event_type = serializers.ChoiceField(choices=['authorised', 'flowing', 'completed', 'error'])
+    litres = serializers.DecimalField(
+        max_digits=12, decimal_places=3, required=False, allow_null=True,
+    )
+    amount_ugx = serializers.DecimalField(
+        max_digits=12, decimal_places=0, required=False, allow_null=True,
+    )
+    meter_start = serializers.DecimalField(
+        max_digits=12, decimal_places=3, required=False, allow_null=True,
+    )
+    meter_end = serializers.DecimalField(
+        max_digits=12, decimal_places=3, required=False, allow_null=True,
+    )
+    attendant_id = serializers.IntegerField(required=False, allow_null=True)
+    source = serializers.ChoiceField(
+        choices=['hardware', 'mock', 'manual'], default='hardware',
+    )
+    occurred_at = serializers.DateTimeField()
+
+    def validate(self, data):
+        if data['event_type'] == 'completed':
+            if data.get('litres') is None:
+                raise serializers.ValidationError(
+                    {'litres': 'litres is required for completed events.'}
+                )
+            if data.get('amount_ugx') is None:
+                raise serializers.ValidationError(
+                    {'amount_ugx': 'amount_ugx is required for completed events.'}
+                )
+        return data

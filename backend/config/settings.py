@@ -241,6 +241,11 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
+# Pump controller hardware integration
+# Real hardware sends this key in X-Pump-API-Key header.
+# Set to a strong random string in production .env.
+PUMP_CONTROLLER_API_KEY = config('PUMP_CONTROLLER_API_KEY', default='dev-pump-key-change-in-production')
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Nexus ERP API',
     'DESCRIPTION': 'Multi-tenant Fuel Station ERP — API Documentation',

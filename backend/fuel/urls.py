@@ -14,4 +14,5 @@ urlpatterns = [
     path('fuel/reports/daily-pump/', views.daily_pump_report, name='fuel-daily-pump-report'),
     path('fuel/reports/variance/', views.variance_report, name='fuel-variance-report'),
     path('fuel/reports/tank-levels/', views.tank_levels_summary, name='fuel-tank-levels'),
+    path('fuel/pump-events/', views.PumpEventView.as_view(), name='fuel-pump-events'),
 ]
