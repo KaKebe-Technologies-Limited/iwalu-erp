@@ -14,6 +14,7 @@ from .serializers import (
     InviteUserSerializer, AcceptInviteSerializer, UserInvitationSerializer,
 )
 from .permissions import IsAdmin, IsAdminOrManager
+from mobile_api.permissions import IsNotMobileClient
 from .role_permissions import get_permissions_for_role
 from .email import send_invitation_email
 
@@ -25,10 +26,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [IsAdminOrManager()]
+            return [IsNotMobileClient(), IsAdminOrManager()]
         if self.action in ('activate', 'deactivate'):
-            return [IsAdmin()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAdmin()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -56,14 +57,14 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsNotMobileClient, IsAuthenticated])
 def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsNotMobileClient, IsAuthenticated])
 def current_user_permissions(request):
     """
     Return the dashboard sections and fine-grained actions the current
@@ -89,7 +90,7 @@ def register(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminOrManager])
+@permission_classes([IsNotMobileClient, IsAdminOrManager])
 def invite_user(request):
     """
     Invite a new staff member by email. The invite is scoped to the current
@@ -138,7 +139,7 @@ def invite_user(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminOrManager])
+@permission_classes([IsNotMobileClient, IsAdminOrManager])
 def list_invitations(request):
     """List all invitations for the current tenant."""
     tenant_schema = connection.schema_name

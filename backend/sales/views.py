@@ -81,6 +81,13 @@ class ShiftViewSet(viewsets.GenericViewSet):
         serializer = CloseShiftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        pending = serializer.validated_data.get('pending_mobile_transactions', 0)
+        if pending > 0:
+            return Response(
+                {'error': f'Sync {pending} pending transaction(s) before closing shift.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Calculate expected cash: opening_cash + cash payments during shift
         cash_payments = (
             Payment.objects

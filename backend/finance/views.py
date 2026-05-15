@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from users.permissions import IsAdminOrManager, IsAccountantOrAbove
+from mobile_api.permissions import IsNotMobileClient
 from .models import Account, FiscalPeriod, JournalEntry, CashRequisition
 from .serializers import (
     AccountSerializer, AccountCreateSerializer,
@@ -33,8 +34,8 @@ class AccountViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [IsAccountantOrAbove()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAccountantOrAbove()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -71,8 +72,8 @@ class FiscalPeriodViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'close'):
-            return [IsAccountantOrAbove()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAccountantOrAbove()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def update(self, request, *args, **kwargs):
         period = self.get_object()
@@ -126,8 +127,8 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'post_entry', 'void_entry'):
-            return [IsAccountantOrAbove()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAccountantOrAbove()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -196,7 +197,7 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 class CashRequisitionViewSet(viewsets.ModelViewSet):
     queryset = CashRequisition.objects.all()
     serializer_class = CashRequisitionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotMobileClient]
     filterset_fields = ['status', 'requisition_type']
 
     def get_queryset(self):
@@ -285,7 +286,7 @@ def _parse_date(value):
 
 
 @api_view(['GET'])
-@permission_classes([IsAccountantOrAbove])
+@permission_classes([IsNotMobileClient, IsAccountantOrAbove])
 def trial_balance_view(request):
     as_of_date = _parse_date(request.query_params.get('as_of_date'))
     if as_of_date == 'invalid':
@@ -299,7 +300,7 @@ def trial_balance_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAccountantOrAbove])
+@permission_classes([IsNotMobileClient, IsAccountantOrAbove])
 def profit_loss_view(request):
     date_from = request.query_params.get('date_from')
     date_to = request.query_params.get('date_to')
@@ -323,7 +324,7 @@ def profit_loss_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAccountantOrAbove])
+@permission_classes([IsNotMobileClient, IsAccountantOrAbove])
 def balance_sheet_view(request):
     as_of_date = _parse_date(request.query_params.get('as_of_date'))
     if as_of_date == 'invalid':
@@ -337,7 +338,7 @@ def balance_sheet_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAccountantOrAbove])
+@permission_classes([IsNotMobileClient, IsAccountantOrAbove])
 def account_ledger_view(request, pk):
     from django.shortcuts import get_object_or_404
     get_object_or_404(Account, pk=pk)

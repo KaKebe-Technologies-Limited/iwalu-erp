@@ -80,6 +80,7 @@ TENANT_APPS = [
     'cafe',
     'manufacturing',
     'projects',
+    'mobile_api',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -221,6 +222,8 @@ REST_FRAMEWORK = {
         # Tenant signup — heavily rate-limited because each successful
         # call provisions a Postgres schema (expensive + irreversible).
         'tenant-registration': '3/hour',
+        'mobile-sync': '10/min',
+        'mobile-login': '5/min',
     },
 }
 
