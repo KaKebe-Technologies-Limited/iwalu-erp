@@ -76,8 +76,14 @@
 
 ## Upcoming Phases
 
-### Phase 9 — Mobile API Layer (Planned)
-- [ ] `mobile_api` app — mobile JWT auth (cashier/attendant only), shift-start data bundle, batch offline sync, shift-close guard, sensitive endpoint hardening with `IsNotMobileClient`.
+### Phase 9 — Mobile API Layer ✅
+- [x] `mobile_api` app — mobile JWT (cashier/attendant only, 5/min throttle), `IsMobileClient`/`IsNotMobileClient` permissions
+- [x] `ShiftStartDataView` — outlet-scoped product/stock/discount/pump bundle (requires open shift at outlet)
+- [x] `MobileSyncView` — idempotent batch sync (≤500 tx), per-tx atomicity, `select_for_update` stock deduction, `MobileSyncLog` audit, 10/min throttle
+- [x] Shift close guard — `pending_mobile_transactions` field blocks close when > 0
+- [x] `IsNotMobileClient` hardened on finance, HR, assets, users, tenants (30+ injection points)
+- [x] `Sale.client_uuid` + `Sale.source` fields added with migrations
+- [x] 42 tests — all passing
 - Branch: `feat-phase-9-mobile-api` | Plan: `docs/plans/phase-9-mobile-api.md`
 
 ### Phase 10 — Reports & Analytics Completeness (Planned)
@@ -108,7 +114,7 @@
 - [ ] Platform-wide analytics dashboard for Kakebe admin.
 
 ## Testing
-- **Backend**: 33+ unit tests covering all Phase 8 modules (café, projects, manufacturing).
+- **Backend**: 75+ unit tests covering Phases 1–9 (café, projects, manufacturing, mobile API).
 - **Permissions**: Role-based access control tests for all action endpoints.
 - **Data Integrity**: Atomic operations, race condition handling, F() arithmetic validation.
 
