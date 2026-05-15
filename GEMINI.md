@@ -4,8 +4,8 @@
 **Company**: Kakebe Technologies, Lira, Uganda  
 **Stack**: Django 5.0/DRF, PostgreSQL 16, Redis, Next.js 14, TypeScript, Docker
 
-**Current Phase**: Phase 6c - Mobile Money & Card Payments (Backend Complete)
-**Status**: ✅ Phases 1-6c Backend Complete | 🚧 Frontend Integration (Phases 5-6) | ⏳ Next: Phase 6d Direct MM API
+**Current Phase**: Phase 9 — Mobile API Layer (Backend Complete)
+**Status**: ✅ Phases 1–9 Backend Complete | 🚧 Frontend Integration (Phases 5–8) | ⏳ Next: Phase 10 Reports & Analytics
 
 ---
 
@@ -76,5 +76,5 @@ docker compose exec backend python manage.py shell
 
 ---
 
-**Last Updated**: April 2026
-**Current Task**: Finalizing Phase 6c (Mobile Money) naming and priority.
+**Last Updated**: May 2026
+**Current Task**: Phase 9 complete — mobile JWT auth, offline sync, shift-close guard, sensitive endpoint hardening. See `docs/modules/mobile-api.md` and `backend/STATUS.md`.
