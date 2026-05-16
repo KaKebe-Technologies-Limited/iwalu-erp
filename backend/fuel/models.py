@@ -188,3 +188,68 @@ class FuelReconciliation(models.Model):
 
     def __str__(self):
         return f"Reconciliation: {self.tank.name} on {self.date}"
+
+
+class PumpEvent(models.Model):
+    """
+    Hardware event received from a pump controller (real or mock).
+    The pump-events API endpoint writes here; completed events auto-update PumpReading.
+    source='hardware' requires X-Pump-API-Key authentication.
+    source='mock' is used by the development mock controller.
+    source='manual' is used by attendants recording events manually via the app.
+    """
+    EVENT_TYPE_CHOICES = (
+        ('authorised', 'Authorised'),
+        ('flowing', 'Flowing'),
+        ('completed', 'Completed'),
+        ('error', 'Error'),
+    )
+    SOURCE_CHOICES = (
+        ('hardware', 'Hardware Controller'),
+        ('mock', 'Mock Controller'),
+        ('manual', 'Manual Entry'),
+    )
+
+    pump = models.ForeignKey(
+        Pump, on_delete=models.PROTECT, related_name='events',
+    )
+    event_type = models.CharField(max_length=15, choices=EVENT_TYPE_CHOICES)
+    litres = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True,
+        help_text='Total litres dispensed. Only set on completed events.',
+    )
+    amount_ugx = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        help_text='Sale amount in UGX. Only set on completed events.',
+    )
+    meter_start = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True,
+        help_text='Pump odometer reading at start of dispense.',
+    )
+    meter_end = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True,
+        help_text='Pump odometer reading at end of dispense.',
+    )
+    attendant_id = models.IntegerField(
+        null=True, blank=True,
+        help_text='User ID of the attendant on duty. Set by the app, not the hardware.',
+    )
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default='hardware')
+    raw_payload = models.JSONField(
+        default=dict,
+        help_text='Raw payload as received from the controller, for debugging.',
+    )
+    occurred_at = models.DateTimeField(
+        help_text='When the event occurred according to the hardware clock.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-occurred_at']
+        indexes = [
+            models.Index(fields=['pump', 'occurred_at']),
+            models.Index(fields=['event_type', 'occurred_at']),
+        ]
+
+    def __str__(self):
+        return f"Pump {self.pump.pump_number} {self.event_type} @ {self.occurred_at}"

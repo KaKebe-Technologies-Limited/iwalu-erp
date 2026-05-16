@@ -1,16 +1,21 @@
 from datetime import datetime
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Q, Sum, Count
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
+from rest_framework.authentication import BaseAuthentication
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from users.permissions import IsAdminOrManager, IsCashierOrAbove
 from .models import (
     Pump, Tank, TankReading, PumpReading,
-    FuelDelivery, FuelReconciliation,
+    FuelDelivery, FuelReconciliation, PumpEvent,
 )
 from .serializers import (
     PumpSerializer,
@@ -18,8 +23,99 @@ from .serializers import (
     PumpReadingSerializer, OpenPumpReadingSerializer, ClosePumpReadingSerializer,
     FuelDeliverySerializer, FuelDeliveryCreateSerializer,
     FuelReconciliationSerializer, ReconciliationRequestSerializer,
+    PumpEventSerializer, PumpEventCreateSerializer,
 )
 from . import services
+
+
+class PumpApiKeyAuthentication(BaseAuthentication):
+    """
+    Authenticates pump hardware controllers via X-Pump-API-Key header.
+    Returns (None, True) so request.user stays AnonymousUser but
+    request.successful_authenticator is set, satisfying AllowAny permission.
+    Used exclusively by the pump-events endpoint.
+    """
+    def authenticate(self, request):
+        api_key = request.headers.get('X-Pump-API-Key')
+        if not api_key:
+            return None
+        expected = getattr(settings, 'PUMP_CONTROLLER_API_KEY', None)
+        if not expected:
+            raise AuthenticationFailed('Pump API key not configured on server.')
+        if api_key != expected:
+            raise AuthenticationFailed('Invalid pump API key.')
+        return (None, api_key)  # (user, auth) — user is None for hardware
+
+
+class PumpEventView(APIView):
+    """
+    Receives pump controller events (hardware, mock, or manual).
+    Authenticated via X-Pump-API-Key header (not JWT).
+    On completed events, auto-updates the open PumpReading for the pump.
+    """
+    authentication_classes = [PumpApiKeyAuthentication]
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PumpEventCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            pump = Pump.objects.get(pk=data['pump_id'])
+        except Pump.DoesNotExist:
+            return Response(
+                {'error': f"Pump {data['pump_id']} not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        event = PumpEvent.objects.create(
+            pump=pump,
+            event_type=data['event_type'],
+            litres=data.get('litres'),
+            amount_ugx=data.get('amount_ugx'),
+            meter_start=data.get('meter_start'),
+            meter_end=data.get('meter_end'),
+            attendant_id=data.get('attendant_id'),
+            source=data.get('source', 'hardware'),
+            raw_payload=request.data if isinstance(request.data, dict) else {},
+            occurred_at=data['occurred_at'],
+        )
+
+        if data['event_type'] == 'completed' and data.get('meter_end') is not None:
+            self._close_pump_reading(pump, data)
+
+        return Response(
+            PumpEventSerializer(event).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def _close_pump_reading(self, pump, data):
+        """Auto-close the open PumpReading for this pump if one exists."""
+        open_reading = (
+            PumpReading.objects
+            .filter(pump=pump, closing_reading__isnull=True)
+            .order_by('-created_at')
+            .first()
+        )
+        if open_reading:
+            open_reading.closing_reading = data['meter_end']
+            open_reading.notes = (
+                f"Auto-closed by pump controller at {data['occurred_at']}. "
+                f"Litres dispensed: {data.get('litres')}."
+            )
+            open_reading.save(update_fields=['closing_reading', 'notes', 'updated_at'])
+
+    def get(self, request):
+        """List recent pump events. Accepts optional ?pump_id= and ?limit= filters."""
+        pump_id = request.query_params.get('pump_id')
+        limit = min(int(request.query_params.get('limit', 50)), 200)
+
+        qs = PumpEvent.objects.select_related('pump').order_by('-occurred_at')
+        if pump_id:
+            qs = qs.filter(pump_id=pump_id)
+
+        return Response(PumpEventSerializer(qs[:limit], many=True).data)
 
 
 class PumpViewSet(viewsets.ModelViewSet):

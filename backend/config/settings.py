@@ -80,6 +80,7 @@ TENANT_APPS = [
     'cafe',
     'manufacturing',
     'projects',
+    'mobile_api',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -221,6 +222,8 @@ REST_FRAMEWORK = {
         # Tenant signup — heavily rate-limited because each successful
         # call provisions a Postgres schema (expensive + irreversible).
         'tenant-registration': '3/hour',
+        'mobile-sync': '10/min',
+        'mobile-login': '5/min',
     },
 }
 
@@ -240,6 +243,11 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
+
+# Pump controller hardware integration
+# Real hardware sends this key in X-Pump-API-Key header.
+# Set to a strong random string in production .env.
+PUMP_CONTROLLER_API_KEY = config('PUMP_CONTROLLER_API_KEY', default='dev-pump-key-change-in-production')
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Nexus ERP API',

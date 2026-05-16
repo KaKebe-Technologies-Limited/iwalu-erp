@@ -28,6 +28,14 @@ class OpenShiftSerializer(serializers.Serializer):
 class CloseShiftSerializer(serializers.Serializer):
     closing_cash = serializers.DecimalField(max_digits=12, decimal_places=2)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    pending_mobile_transactions = serializers.IntegerField(
+        default=0,
+        min_value=0,
+        help_text=(
+            "Number of offline transactions the mobile client has not yet synced. "
+            "A non-zero value blocks shift close."
+        ),
+    )
 
 
 class PaymentSerializer(serializers.ModelSerializer):

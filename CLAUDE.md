@@ -5,8 +5,8 @@
 **Team**: Backend (Django/PostgreSQL) + Frontend (Next.js)  
 **Stack**: Django 5.0/DRF, PostgreSQL 16, Redis, Next.js 14, TypeScript, Docker
 
-**Current Phase**: Phase 7 Backend Complete — Frontend Integration Pending
-**Status**: ✅ Phases 1–7 Backend | 🚧 Frontend Integration (Phases 5–7) | ⏳ Next: Café/Bakery, Projects, Manufacturing
+**Current Phase**: Phase 8 Backend Complete (on `feat-phase-8-backend` branch, pending merge)
+**Status**: ✅ Phases 1–8 Backend | 🚧 Frontend Integration (Phases 5–8) | ⏳ Next: Merge Phase 8 → main, then frontend integration
 
 ---
 
@@ -499,6 +499,16 @@ Use exact paths: `backend/users/views.py`, `frontend/app/(dashboard)/dashboard/u
 - Project Stage: @'Nexus ERP – Full System Proposal.pdf' Only refer to this to see what stage the project is at and what the next step should be.
 ---
 
-**Last Updated**: April 2026
-**Current Phase**: 7 — All backend complete through Phase 7d (Assets)
-**Next Phase**: Café & Bakery Management, Project Management, Manufacturing/BOM
+**Last Updated**: May 2026
+**Current Phase**: 8 Backend Complete — see `feat-phase-8-backend` branch (café, projects, manufacturing)
+**Next Phase**: Merge Phase 8 → main → full frontend integration (Phases 5–8)
+
+## Architecture & Planning Docs
+
+Key decisions are documented — read these before starting any new module:
+
+- `docs/ARCHITECTURE.md` — ADRs, platform strategy, hardware guide, data flows
+- `docs/offline-first.md` — offline sync protocol, WatermelonDB schema, EFRIS queue, kiosk mode
+- `docs/mobile-app-plan.md` — React Native Android app scope, screens, API requirements
+- `docs/security-audit-offline.md` — offline security risks and mitigations
+- `docs/FRONTEND_DEV_GUIDE.md` — frontend gap analysis, POS layout, role-based routing, priority order

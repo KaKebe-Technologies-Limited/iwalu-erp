@@ -6,7 +6,8 @@
 ## Core Mandates
 - **Multi-tenancy**: Use `migrate_schemas` for migrations. Never use standard `migrate`.
 - **Cross-schema References**: Use `IntegerField(user_id)` instead of `ForeignKey` for references to the `public` schema from `tenant` schemas.
-- **Permissions**: Use project-specific classes: `IsAdmin`, `IsAdminOrManager`, `IsCashierOrAbove`, `IsAccountant`.
+- **Permissions**: Use project-specific classes: `IsAdmin`, `IsAdminOrManager`, `IsCashierOrAbove`, `IsAccountant`, `IsAccountantOrAbove`.
+- **Mobile token gating**: `mobile_api.permissions.IsNotMobileClient` must be added to any new sensitive endpoint (finance, HR, assets, tenants, users). Do NOT add it to products, sales, fuel, notifications, or system_config — mobile clients need those.
 
 ## Common Commands
 ```bash

@@ -12,6 +12,7 @@ from .serializers import (
     MaintenanceLogSerializer, AssetDisposalSerializer
 )
 from users.permissions import IsAdminOrManager, IsAccountant
+from mobile_api.permissions import IsNotMobileClient
 
 class AssetCategoryViewSet(viewsets.ModelViewSet):
     queryset = AssetCategory.objects.all()
@@ -21,8 +22,8 @@ class AssetCategoryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+            return [IsNotMobileClient(), permissions.IsAdminUser()]
+        return [IsNotMobileClient(), permissions.IsAuthenticated()]
 
 
 class AssetViewSet(viewsets.ModelViewSet):
@@ -43,8 +44,8 @@ class AssetViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'assign', 'dispose']:
-            return [IsAdminOrManager()]
-        return [permissions.IsAuthenticated()]
+            return [IsNotMobileClient(), IsAdminOrManager()]
+        return [IsNotMobileClient(), permissions.IsAuthenticated()]
 
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
@@ -141,7 +142,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAccountant])
+    @action(detail=False, methods=['get'], permission_classes=[IsNotMobileClient, IsAccountant])
     def schedule(self, request):
         year = int(request.query_params.get('year', date.today().year))
         month = request.query_params.get('month')

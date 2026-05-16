@@ -27,6 +27,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import User
+from mobile_api.permissions import IsNotMobileClient
 from .models import (
     Client, Domain, TenantEmailVerification,
     SubscriptionPlan, TenantSubscription, SubscriptionInvoice
@@ -328,7 +329,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'list':
             return [AllowAny()]
-        return [IsAdminUser()]
+        return [IsNotMobileClient(), IsAdminUser()]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -346,8 +347,8 @@ class TenantSubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_permissions(self):
         if self.action in ['my_subscription', 'change_plan', 'invoices']:
-            return [IsAuthenticated()]
-        return [IsAdminUser()]
+            return [IsNotMobileClient(), IsAuthenticated()]
+        return [IsNotMobileClient(), IsAdminUser()]
 
     @action(detail=False, methods=['get'], url_path='my-subscription')
     def my_subscription(self, request):
@@ -464,8 +465,8 @@ class SubscriptionInvoiceViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve'] and (not self.request.user.is_authenticated or not self.request.user.is_staff):
-            return [IsAuthenticated()]
-        return [IsAdminUser()]
+            return [IsNotMobileClient(), IsAuthenticated()]
+        return [IsNotMobileClient(), IsAdminUser()]
 
     def get_queryset(self):
         queryset = super().get_queryset()

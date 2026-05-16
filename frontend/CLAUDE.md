@@ -29,7 +29,10 @@ pnpm run type-check
 ```
 
 ## Standards
-Refer to Frontend Standards (Next.js) in @../CLAUDE.md
+- Frontend standards (Next.js patterns, component templates, state management): `@../CLAUDE.md`
+- **Primary frontend dev guide** (role-based routing, POS layout, offline, printing, gaps, priority order): `@../docs/FRONTEND_DEV_GUIDE.md`
+- Architecture decisions (platform strategy, hardware, offline sync): `@../docs/ARCHITECTURE.md`
+- Mobile app plan (React Native Android scope): `@../docs/mobile-app-plan.md`
 
 ---
 

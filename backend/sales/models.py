@@ -71,6 +71,21 @@ class Sale(models.Model):
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed')
     notes = models.TextField(blank=True)
+    client_uuid = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text=(
+            "Client-generated UUID for mobile offline deduplication. "
+            "Null for web POS sales."
+        ),
+    )
+    source = models.CharField(
+        max_length=10,
+        choices=[('pos', 'Web POS'), ('mobile', 'Mobile App')],
+        default='pos',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

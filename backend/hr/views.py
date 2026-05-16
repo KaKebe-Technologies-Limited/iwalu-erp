@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from users.permissions import IsAdminOrManager, IsAccountantOrAbove
+from mobile_api.permissions import IsNotMobileClient
 from .models import (
     Department, Employee, LeaveType, LeaveBalance,
     LeaveRequest, Attendance, PayrollPeriod, PaySlip,
@@ -51,8 +52,8 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [IsAdminOrManager()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAdminOrManager()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -79,8 +80,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'terminate'):
-            return [IsAdminOrManager()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAdminOrManager()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -109,7 +110,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrManager])
+    @action(detail=True, methods=['post'], permission_classes=[IsNotMobileClient, IsAdminOrManager])
     def terminate(self, request, pk=None):
         from django.utils import timezone
         employee = self.get_object()
@@ -130,8 +131,8 @@ class LeaveTypeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [IsAdminOrManager()]
-        return [IsAuthenticated()]
+            return [IsNotMobileClient(), IsAdminOrManager()]
+        return [IsNotMobileClient(), IsAuthenticated()]
 
 
 class LeaveBalanceViewSet(viewsets.ReadOnlyModelViewSet):
@@ -139,7 +140,7 @@ class LeaveBalanceViewSet(viewsets.ReadOnlyModelViewSet):
         'employee', 'leave_type',
     ).all()
     serializer_class = LeaveBalanceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotMobileClient]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -157,7 +158,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     queryset = LeaveRequest.objects.select_related(
         'employee', 'leave_type',
     ).all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotMobileClient]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['start_date', 'created_at']
 
@@ -245,13 +246,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrManager])
+    @action(detail=True, methods=['post'], permission_classes=[IsNotMobileClient, IsAdminOrManager])
     def approve(self, request, pk=None):
         leave_request = self.get_object()
         services.approve_leave(leave_request, request.user.pk)
         return Response(LeaveRequestSerializer(leave_request).data)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrManager])
+    @action(detail=True, methods=['post'], permission_classes=[IsNotMobileClient, IsAdminOrManager])
     def reject(self, request, pk=None):
         leave_request = self.get_object()
         reason = request.data.get('reason', '')
@@ -286,7 +287,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Attendance.objects.select_related('employee').all()
     serializer_class = AttendanceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotMobileClient]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['date']
 
@@ -363,7 +364,7 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
 
 class PayrollPeriodViewSet(viewsets.ModelViewSet):
     queryset = PayrollPeriod.objects.all()
-    permission_classes = [IsAdminOrManager]
+    permission_classes = [IsAdminOrManager, IsNotMobileClient]
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -429,7 +430,7 @@ class PaySlipViewSet(viewsets.ReadOnlyModelViewSet):
         'employee', 'payroll_period',
     ).prefetch_related('lines').all()
     serializer_class = PaySlipSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNotMobileClient]
 
     def get_queryset(self):
         qs = super().get_queryset()

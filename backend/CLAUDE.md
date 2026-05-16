@@ -151,6 +151,17 @@ def handle(self, *args, **options):
 - **Project Management** — Projects, tasks, budgets, time tracking, profitability reports. ✅
 - **Manufacturing/BOM** — Raw materials, production orders, WIP, finished goods, unit costing. ✅
 
+## Remaining Backend Phases
+
+| Phase | Branch | Plan | Status |
+|---|---|---|---|
+| **9** — Mobile API (`mobile_api` app): mobile JWT, shift-start-data, batch sync, shift-close guard | `feat-phase-9-mobile-api` | `docs/plans/phase-9-mobile-api.md` | ✅ Complete |
+| **10** — Reports completeness: HR/payroll, project, EFRIS export, role-based dashboard | `feat-phase-10-reports` | `docs/plans/phase-10-reports-analytics.md` | ⏳ Planned |
+| **11** — Inventory enhancements: `ProductBatch` expiry/FIFO, `Bundle`+`BundleItem`, bundle checkout | `feat-phase-11-inventory-enhancements` | `docs/plans/phase-11-inventory-enhancements.md` | ⏳ Planned |
+| **12** — Finance completeness: `Budget`+`BudgetLine`, AP (`SupplierInvoice`+`APPayment`), outlet P&L | `feat-phase-12-finance-completeness` | `docs/plans/phase-12-finance-completeness.md` | ⏳ Planned |
+
+**Backlog (post Phase 12)**: Fuel pump hardware protocol (IFSF/serial — mock done at `/api/fuel/pump-events/`), accounts receivable, fleet card / B2B module.
+
 ## Post-Phase Workflow
 
 ### After Code Review Approval
